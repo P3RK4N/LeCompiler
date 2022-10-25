@@ -1,76 +1,11 @@
 from collections import defaultdict as dd
 
+from Parser import splitExpressionAND, splitExpressionOR
+
 __DEBUG__ = False
 
-def __splitExpressionOR(expression):
-   '''
-   Finds all "OR" parts in expression\n
-   IN:
-      expression : String
-   OUT:
-      parts : List
-   '''
-
-   parts = []
-   begin = 0
-   count = 0
-   pos = 0
-   while pos < len(expression):
-      char = expression[pos]
-
-      if char == "\\":
-         pos += 1
-      elif char == "(":
-         count += 1
-      elif char == ")":
-         count -= 1
-      elif char == '|' and not count:
-         parts.append(expression[begin:pos])
-         begin = pos+1
-      
-      pos += 1
-   parts.append(expression[begin:])
-   return parts
-   
-def __splitExpressionAND(expression):
-   '''
-   Finds all "AND" parts in expression\n
-   IN:
-      expression : String
-   OUT:
-      parts : List
-   '''
-
-   pos = 0
-   left = 0
-   count = 0
-   parts = []
-
-   while pos < len(expression):
-      char = expression[pos]
-
-      if char == "(":
-         count += 1
-         if count == 1:
-            left = pos
-      elif char == ")":
-         count -= 1
-         if not count:
-            parts.append(expression[left:pos+1])
-      elif count > 0:
-         pass
-      elif char == "\\":
-         parts.append(expression[pos:pos+2])
-         pos += 1
-      else:
-         parts.append(char)
-      
-      pos += 1
-   
-   return parts
- 
-def make_eNKA(expression, depth = 0):
-   partsOR = __splitExpressionOR(expression)
+def __make_eNKA(expression, depth = 0):
+   partsOR = splitExpressionOR(expression)
 
    if __DEBUG__:
       print("    "*depth,"Making:",expression)
@@ -80,18 +15,21 @@ def make_eNKA(expression, depth = 0):
 
    if len(partsOR) > 1:
       for partOR in partsOR:
-         subStart, subEnd = make_eNKA(partOR, depth+1)
+         subStart, subEnd = __make_eNKA(partOR, depth+1)
          start["$"].append(subStart)
          subEnd["$"].append(end)
+
+   #Sequential Expression 
    else:
-      partsAND = __splitExpressionAND(expression)
+      partsAND = splitExpressionAND(expression)
+      #(subStart, subEnd, repeatable)
       partsCache = [(None, start, False)]
       
       for i,partAND in enumerate(partsAND):
          subStart, subEnd = dd(list), dd(list)
          #SUBPART
          if partAND[0] == "(":
-            subStart, subEnd = make_eNKA(partAND[1:len(partAND)-1], depth+1)
+            subStart, subEnd = __make_eNKA(partAND[1:len(partAND)-1], depth+1)
             partsCache[-1][1]["$"].append(subStart)
             partsCache.append([subStart, subEnd, False])
          
@@ -109,7 +47,6 @@ def make_eNKA(expression, depth = 0):
       partsCache[-1][1]["$"].append(end)
       partsCache.append((end, None, False))
 
-      #TODO: Star for zero repetitions
       for i in range(len(partsCache)-1):
          partCache = partsCache[i]
          if partCache[2]:
@@ -126,7 +63,7 @@ def make_eNKA(expression, depth = 0):
 
    return start, end
 
-def advance_eNKA(currentStates, character):
+def step_eNKA(currentStates, character, validID = None):
    nextStates = []
    visitedStates = set()
    DFS = []
@@ -146,9 +83,13 @@ def advance_eNKA(currentStates, character):
             nextStates.append(eState)
             DFS.append(eState)
    
-   return nextStates
+   valid = False
+   if validID in visitedStates:
+      valid = True
 
-def get_e(states):
+   return nextStates, valid
+
+def getEpsilonEnv(states):
    e = states
    DFS = []
    visited = set()
@@ -167,13 +108,33 @@ def get_e(states):
    
    return e
 
+def make_eNKA(expression):
+   '''
+   Recursively makes eNKA Machine.\n
+   IN:\n
+      Expression : String\n
+   
+   OUT:\n
+      start_State : Dict\n
+      end_State : Dict
+   '''
+   return __make_eNKA(expression, 0)
+
 def test_eNKA(machine, text):
+   '''
+   Checks whether text belongs to a Machine's expression.\n
+   IN:
+      Machine : Dict
+      Text : String
+   OUT:
+      Belongs : Bool
+   '''
    currentStates = [machine[0]]
 
-   currentStates = get_e(currentStates)
+   currentStates = getEpsilonEnv(currentStates)
 
    for t in text:
-      currentStates = advance_eNKA(currentStates, t)
+      currentStates, _ = step_eNKA(currentStates, t)
       if not currentStates:
          return False
 

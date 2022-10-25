@@ -1,30 +1,91 @@
 __DEBUG__ = True
 
-def importData(pathName):
+def splitExpressionOR(expression):
+   '''
+   Finds all "OR" parts in expression\n
+   IN:
+      expression : String
+   OUT:
+      parts : List
+   '''
+
+   parts = []
+   begin = 0
+   count = 0
+   pos = 0
+   while pos < len(expression):
+      char = expression[pos]
+
+      if char == "\\":
+         pos += 1
+      elif char == "(":
+         count += 1
+      elif char == ")":
+         count -= 1
+      elif char == '|' and not count:
+         parts.append(expression[begin:pos])
+         begin = pos+1
+      
+      pos += 1
+   parts.append(expression[begin:])
+   return parts
+   
+def splitExpressionAND(expression):
+   '''
+   Finds all "AND" parts in expression\n
+   IN:
+      expression : String
+   OUT:
+      parts : List
+   '''
+
+   pos = 0
+   left = 0
+   count = 0
+   parts = []
+
+   while pos < len(expression):
+      char = expression[pos]
+
+      if char == "(":
+         count += 1
+         if count == 1:
+            left = pos
+      elif char == ")":
+         count -= 1
+         if not count:
+            parts.append(expression[left:pos+1])
+      elif count > 0:
+         pass
+      elif char == "\\":
+         parts.append(expression[pos:pos+2])
+         pos += 1
+      else:
+         parts.append(char)
+      
+      pos += 1
+   
+   return parts
+
+def parseData(data):
    """
    IN: 
-      pathName : String\n\n\n
+      data : List<String>\n
    
    OUT:  
-      regularDefines : Dict, 
-      rules : Dict, 
-      states : List, 
-      uniforms : List
+      states : List<String>, 
+      uniforms : Dict<String, Int>,
+      rules : Dict<String, Dict<String, List<String>>> 
    """
 
    regularDefines = {}
    rules = {}
+   rulePriorities = {}
    states = []
    uniforms = []
 
-   tmpData = open(pathName)
-   data = []
-   for row in tmpData:
-      tmp = str(row.rstrip("\n").encode('utf-8'))
-      tmp = tmp[2:len(tmp)-1]
-      data.append(tmp)
-
    position = 0
+   priority = 0
    while position < len(data):
       line = data[position]
 
@@ -33,10 +94,7 @@ def importData(pathName):
          definition,values = line.split(" ")
 
          for key in regularDefines:
-            if not "eksponent" in line:
-               values = values.replace(key, regularDefines[key])
-            else:
-               values = values.replace(key, "(" + regularDefines[key] + ")")
+            values = values.replace(key, "(" + regularDefines[key] + ")")
 
          regularDefines[definition] = values
 
@@ -69,6 +127,14 @@ def importData(pathName):
 
          rules[state][expression] = args
 
+         rulePriorities[(state,expression)] = priority
+         priority -= 1
+
       position += 1
 
-   return regularDefines, rules, states, uniforms
+   uniformsDict = {}
+
+   for i,uniform in enumerate(uniforms):
+      uniformsDict[uniform] = i
+
+   return states, uniformsDict, rules, rulePriorities

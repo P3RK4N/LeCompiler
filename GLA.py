@@ -5,90 +5,46 @@
    #tablica konstanti
    #tablica kljucnih rijeci, operatora i specijalnih znakova
 
-import eNKA
+import fileinput
+
 import Parser
-import Machine
 
-defines, rules, states, uniforms = Parser.importData("data.txt")
 
-def printDefines():
+def __printDefines():
    for key,define in defines.items():
       print(key, define)
    print()
 
-def printExpressions(): 
+def __printExpressions(rules): 
    for rule,value in rules.items():
       for expression,args in value.items():
          print(expression)
    print()
 
-def test_eNKA(expression):
-   machine = {}
-   ends = eNKA.make_eNKA(expression, machine)
-   # print(machine)
-   print("Done")
+def __main__():
+   data = []
 
-def test_eNKA(expression, value):
-   machine = {}
-   eNKA.make_eNKA(expression, machine)
-   print(machine)
-   states = dict()
-   states[id(machine)] = machine
-   for letter in value:
-      newStates = {}
-      for stateId, prevState in states.items():
-         if letter in prevState:
-            nextStates = prevState[letter]
-            for newState in nextStates:
-               if not id(newState) in newStates:
-                  newStates[id(newState)] = newState
+   for line in fileinput.input():
+      tmp = str(line.rstrip("\n"))
+      # tmp = tmp[1:len(tmp)-1]
+      # tmp = tmp.replace("\\", "\\\\")
 
-      states = newStates
+      data.append(tmp)
 
-   for state in states.values():
-      if "Valid" in state:
-         return True
-      
-   return False 
 
-def dfs_eNKA(expression):
-   machine = {}
-   eNKA.make_eNKA(expression, machine)
+   states, uniforms, rules, rulePriorities = Parser.parseData(data)
+   
+   __printExpressions(rules)
 
-   visited = {id(machine)}
-   from collections import deque as dq
-   stack = dq([(0,machine)])
+   LA = open("analizator\\LA.py", "w")
 
-   while stack:
-      depth, current = stack.popleft()
-      if isinstance(current,str):
-         continue
+   LA.write("states = " + str(states) + "\n")
+   LA.write("uniforms = " + str(uniforms) + "\n")
+   LA.write("rules = " + str(rules) + "\n")
+   LA.write("rulePriorities = " + str(rulePriorities) + "\n")
+   
+   LA.close()
 
-      for letter, nextStates in current.items():
-         print(id(current)," "*6*depth,(" "*(8-len(letter))) + letter, "    Next:", [id(ns) if not isinstance(ns, tuple) else id(ns[0]) for ns in nextStates if not isinstance(nextStates, str)])
-         for ns in nextStates:
-            if id(ns) not in visited and not isinstance(ns, tuple):
-               stack.append((depth+1,ns))
-               visited.add(id(ns))
-      print()
 
-      
-def dfs_machine(machine):
-   currentStates = [machine[0]]
-   visited = {id(currentStates)}
-
-   while currentStates:
-      newStates = []
-      for state in currentStates:
-         for letter,nextStates in state.items():
-            for nextState in nextStates:
-               if not id(nextState) in visited: 
-                  visited.add(id(nextState))
-                  print(id(state), letter, id(nextState))
-                  newStates.append(nextState)
-            print()
-      currentStates = newStates
-
-eNKA = Machine.make_eNKA("(0|1|2|3|4|5|6|7|8|9)*.(0|1|2|3|4|5|6|7|8|9)(0|1|2|3|4|5|6|7|8|9)*($|((e|E)($|+|-)(0|1|2|3|4|5|6|7|8|9)(0|1|2|3|4|5|6|7|8|9)*))")
-
-print(Machine.test_eNKA(eNKA, ".9e+1"))
+if __name__ == "__main__":
+   __main__()
