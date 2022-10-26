@@ -1,5 +1,6 @@
 __DEBUG__ = True
 
+
 def splitExpressionOR(expression):
    '''
    Finds all "OR" parts in expression\n
@@ -125,6 +126,7 @@ def parseData(data):
          if state not in rules:
             rules[state] = {}
 
+         
          rules[state][expression] = args
 
          rulePriorities[(state,expression)] = priority

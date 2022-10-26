@@ -9,12 +9,6 @@ import fileinput
 
 import Parser
 
-
-def __printDefines():
-   for key,define in defines.items():
-      print(key, define)
-   print()
-
 def __printExpressions(rules): 
    for rule,value in rules.items():
       for expression,args in value.items():
@@ -26,11 +20,7 @@ def __main__():
 
    for line in fileinput.input():
       tmp = str(line.rstrip("\n"))
-      # tmp = tmp[1:len(tmp)-1]
-      # tmp = tmp.replace("\\", "\\\\")
-
       data.append(tmp)
-
 
    states, uniforms, rules, rulePriorities = Parser.parseData(data)
    
@@ -50,20 +40,14 @@ import fileinput
 import Machine
 
 
-def getCodeBuffer(prefixes):
+def getCodeBuffer():
    buffer = ""
    code = []
    for line in fileinput.input():
       if line != '':
-         tmp = repr(line)
-         tmp = tmp[1:len(tmp)-1]
-         code.append(tmp)
+         code.append(repr(line)[1:-1].replace(" ","\\_"))
 
    buffer = ''.join(code)
-
-   prefixes.discard("n")
-   prefixes.discard("t")
-   print(prefixes)
 
    codeBuffer = []
    i = 0
@@ -72,17 +56,18 @@ def getCodeBuffer(prefixes):
       if codeBuffer[-1] == '\\':
          i += 1
          codeBuffer[-1] += buffer[i]
-      elif codeBuffer[-1] in prefixes:
-         codeBuffer[-1] = "\\" + codeBuffer[-1]
+      elif codeBuffer[-1] == '$':
+         codeBuffer[-1] = "\\$"
+
       i += 1
 
    return codeBuffer
 
-def getMachinesFromRules(prefixed = None):
+def getMachinesFromRules():
    expressionToMachine = {}
    for state,transitions in rules.items():
       for expression, args in transitions.items():
-         expressionToMachine[expression] = Machine.make_eNKA(expression, prefixed)
+         expressionToMachine[expression] = Machine.make_eNKA(expression)
    return expressionToMachine
 
 def __getCurrentMachines(state, expressionToMachine):
@@ -113,6 +98,7 @@ def analyze(codeBuffer, beginState, expressionToMachine):
       #(expression, id(validState)) => [currentStates...]
       currentMachines = __getCurrentMachines(currentState, expressionToMachine)
       previousMachines = None
+      previousMachinesPOS = 0
       pos = l
       args = []
 
@@ -132,52 +118,48 @@ def analyze(codeBuffer, beginState, expressionToMachine):
             if previousMachines != None:
                priorityExpression = __getPriorityExpression(previousMachines, currentState)
                args = rules[currentState][priorityExpression]
-               break               
+               pos = previousMachinesPOS
+               break
+            else:
+               pos = l + 1
+               break          
 
          else:
             currentMachines = nextMachines
             if len(previousTmp) > 0:
                previousMachines = previousTmp
+               previousMachinesPOS = pos + 1
 
          pos += 1
 
-      lChanged = False
-
       if len(args) > 0:
          for i in range(len(args)):
-            if not i and args[i] in uniforms:
-               uniformTable.append([args[i], row, codeBuffer[l:pos-int(previousMachines==None and pos-l > 1 and pos == len(codeBuffer))]]) #TODO : Fix
+            if "VRATI_SE" in args[i]:
+               pos = l + int(args[i].split(" ")[1])
+
+
+         for i in range(len(args)):
+            if args[i] in uniforms:
+               word = ''.join(codeBuffer[l:pos])
+               word = word.replace('\\\\', '\\')
+               uniformTable.append([args[i], row, word])
             elif "UDJI_U_STANJE" in args[i]:
                currentState = args[i].split(" ")[1]
-            elif "VRATI_SE" in args[i]:
-               lChanged = True
-               l += int(args[i].split(" ")[1])
             elif "NOVI_REDAK" in args[i]:
                row += 1
-      
-      if not lChanged:
-         l = pos
+      l = pos
    
    return uniformTable
 
 
-prefixed = set()
-expressionToMachine = getMachinesFromRules(prefixed)
-codeBuffer = getCodeBuffer(prefixed)
-
-print(codeBuffer)
+expressionToMachine = getMachinesFromRules()
+codeBuffer = getCodeBuffer()
 
 uniformTable = analyze(codeBuffer, states[0], expressionToMachine)
 for uniform in uniformTable:
-	print(uniform[0],uniform[1],''.join(uniform[2]))
+	print(uniform[0],uniform[1],uniform[2])
    """
    )
-   LA.write("\n")
-   LA.write("codeBuffer = getCodeBuffer()\n")
-   LA.write("expressionToMachine = getMachinesFromRules()\n")
-   LA.write("uniformTable = analyze(codeBuffer, states[0], expressionToMachine)\n")
-   LA.write("for uniform in uniformTable:\n")
-   LA.write("\tprint(uniform[0],uniform[1],uniform[2])\n")
    
    LA.close()
 

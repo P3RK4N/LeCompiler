@@ -2,6 +2,17 @@ from collections import defaultdict as dd
 
 __DEBUG__ = False
 
+specials = {
+      "\\(" : "(" ,
+      "\\)" : ")",
+      "\\{" : "{",
+      "\\}" : "}",
+      "\\|" : "|",
+      "\\*" : "*",
+      # "\\$" : "$",
+      # "\\\\" : "\\"
+      }
+
 def splitExpressionOR(expression):
    '''
    Finds all "OR" parts in expression\n
@@ -53,15 +64,19 @@ def splitExpressionAND(expression):
          count += 1
          if count == 1:
             left = pos
+      
       elif char == ")":
          count -= 1
          if not count:
             parts.append(expression[left:pos+1])
+      
       elif count > 0:
          pass
+
       elif char == "\\":
          parts.append(expression[pos:pos+2])
          pos += 1
+
       else:
          parts.append(char)
       
@@ -69,7 +84,7 @@ def splitExpressionAND(expression):
    
    return parts
 
-def __make_eNKA(expression, depth = 0, prefixed = None):
+def __make_eNKA(expression, depth = 0):
    partsOR = splitExpressionOR(expression)
 
    if __DEBUG__:
@@ -80,7 +95,7 @@ def __make_eNKA(expression, depth = 0, prefixed = None):
 
    if len(partsOR) > 1:
       for partOR in partsOR:
-         subStart, subEnd = __make_eNKA(partOR, depth+1, prefixed)
+         subStart, subEnd = __make_eNKA(partOR, depth+1)
          start["$"].append(subStart)
          subEnd["$"].append(end)
 
@@ -88,7 +103,7 @@ def __make_eNKA(expression, depth = 0, prefixed = None):
    else:
       partsAND = splitExpressionAND(expression)
       #(subStart, subEnd, repeatable)
-      partsCache = [(None, start, False)]
+      partsCache = [[None, start, False]]
 
       pos = 0      
       while pos < len(partsAND):
@@ -96,7 +111,7 @@ def __make_eNKA(expression, depth = 0, prefixed = None):
          subStart, subEnd = dd(list), dd(list)
          #SUBPART
          if partAND[0] == "(":
-            subStart, subEnd = __make_eNKA(partAND[1:len(partAND)-1], depth+1, prefixed)
+            subStart, subEnd = __make_eNKA(partAND[1:len(partAND)-1], depth+1)
             partsCache[-1][1]["$"].append(subStart)
             partsCache.append([subStart, subEnd, False])
          
@@ -109,19 +124,19 @@ def __make_eNKA(expression, depth = 0, prefixed = None):
          else:
             if __DEBUG__:
                print(partAND, partAND == "\\", len(partAND))
-            
-            if len(partAND) == 2:
-               if prefixed != None:
-                  prefixed.add(partAND[1])
 
-            subStart[partAND].append(subEnd)
+            if partAND == "\\":
+               pos += 1
+               partAND += partsAND[pos]
+
+            subStart[partAND if partAND not in specials else specials[partAND]].append(subEnd)
             partsCache[-1][1]["$"].append(subStart)
             partsCache.append([subStart, subEnd, False])
          
          pos += 1
 
       partsCache[-1][1]["$"].append(end)
-      partsCache.append((end, None, False))
+      partsCache.append([end, None, False])
 
       for i in range(len(partsCache)-1):
          partCache = partsCache[i]
@@ -184,7 +199,7 @@ def getEpsilonEnv(states):
    
    return e
 
-def make_eNKA(expression, prefixed = None):
+def make_eNKA(expression):
    '''
    Recursively makes eNKA Machine.\n
    IN:\n
@@ -194,7 +209,7 @@ def make_eNKA(expression, prefixed = None):
       start_State : Dict\n
       end_State : Dict
    '''
-   return __make_eNKA(expression, 0, prefixed)
+   return __make_eNKA(expression, 0)
 
 def test_eNKA(machine, text):
    '''
@@ -219,3 +234,5 @@ def test_eNKA(machine, text):
          return True
    
    return False
+
+# print(test_eNKA(make_eNKA("\'(\\(|\\)|\\{|\\}|\\||\\*|\\\\|\\$|\\_|!|\"|#|%|&|+|,|-|.|/|0|1|2|3|4|5|6|7|8|9|:|;|<|=|>|?|@|A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|[|]|^|_|`|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z|~)\'"), "''"))

@@ -1,23 +1,35 @@
+states = ['S_poc', 'S_preskoci']
+uniforms = {'A': 0}
+rules = {'S_poc': {'a': ['A', 'UDJI_U_STANJE S_preskoci'], '\\n': ['-', 'NOVI_REDAK']}, 'S_preskoci': {'a': ['-', 'UDJI_U_STANJE S_poc'], '\\n': ['-', 'NOVI_REDAK']}}
+rulePriorities = {('S_poc', 'a'): 0, ('S_poc', '\\n'): -1, ('S_preskoci', 'a'): -2, ('S_preskoci', '\\n'): -3}
+
 import fileinput
+
 import Machine
 
-rulePriorities = None
-rules = None 
-states = None
-uniforms = None
 
 def getCodeBuffer():
    buffer = ""
    code = []
    for line in fileinput.input():
       if line != '':
-         tmp = str(repr(line))
-         tmp = tmp[1:len(tmp)-1]
-         tmp = tmp.replace(" ", "\_")
-         # tmp = tmp.replace("\\", "\\\\")
-         code.append(tmp)
-         buffer = ''.join(code)
-   return buffer
+         code.append(repr(line)[1:-1].replace(" ","\\_"))
+
+   buffer = ''.join(code)
+
+   codeBuffer = []
+   i = 0
+   while i < len(buffer):
+      codeBuffer.append(buffer[i])
+      if codeBuffer[-1] == '\\':
+         i += 1
+         codeBuffer[-1] += buffer[i]
+      elif codeBuffer[-1] == '$':
+         codeBuffer[-1] = "\\$"
+
+      i += 1
+
+   return codeBuffer
 
 def getMachinesFromRules():
    expressionToMachine = {}
@@ -47,13 +59,14 @@ def __getPriorityExpression(expressions, state):
 def analyze(codeBuffer, beginState, expressionToMachine):
    uniformTable = []
 
-   l,r,row = 0,0,1
+   l,row = 0,1
    currentState = beginState
 
    while l < len(codeBuffer):
       #(expression, id(validState)) => [currentStates...]
       currentMachines = __getCurrentMachines(currentState, expressionToMachine)
       previousMachines = None
+      previousMachinesPOS = 0
       pos = l
       args = []
 
@@ -73,30 +86,44 @@ def analyze(codeBuffer, beginState, expressionToMachine):
             if previousMachines != None:
                priorityExpression = __getPriorityExpression(previousMachines, currentState)
                args = rules[currentState][priorityExpression]
-               break               
+               pos = previousMachinesPOS
+               break
+            else:
+               pos = l + 1
+               break          
 
          else:
             currentMachines = nextMachines
             if len(previousTmp) > 0:
                previousMachines = previousTmp
+               previousMachinesPOS = pos + 1
 
          pos += 1
 
-      lChanged = False
-
       if len(args) > 0:
          for i in range(len(args)):
-            if not i and args[i] in uniforms:
-               uniformTable.append([args[i], row, codeBuffer[l:pos-int(previousMachines==None and pos-l > 1)]])
+            if "VRATI_SE" in args[i]:
+               pos = l + int(args[i].split(" ")[1])
+
+
+         for i in range(len(args)):
+            if args[i] in uniforms:
+               word = ''.join(codeBuffer[l:pos])
+               word = word.replace('\\\\', '\\')
+               uniformTable.append([args[i], row, word])
             elif "UDJI_U_STANJE" in args[i]:
                currentState = args[i].split(" ")[1]
-            elif "VRATI_SE" in args[i]:
-               lChanged = True
-               l += int(args[i].split(" ")[1])
             elif "NOVI_REDAK" in args[i]:
                row += 1
-      
-      if not lChanged:
-         l = pos
+      l = pos
    
    return uniformTable
+
+
+expressionToMachine = getMachinesFromRules()
+codeBuffer = getCodeBuffer()
+
+uniformTable = analyze(codeBuffer, states[0], expressionToMachine)
+for uniform in uniformTable:
+	print(uniform[0],uniform[1],uniform[2])
+   
