@@ -1,4 +1,4 @@
-__DEBUG__ = True
+__DEBUG__ = False
 
 
 def splitExpressionOR(expression):

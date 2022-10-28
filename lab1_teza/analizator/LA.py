@@ -13,23 +13,9 @@ def getCodeBuffer():
    code = []
    for line in fileinput.input():
       if line != '':
-         code.append(repr(line)[1:-1].replace(" ","\\_"))
+         code.append(line)
 
-   buffer = ''.join(code)
-
-   codeBuffer = []
-   i = 0
-   while i < len(buffer):
-      codeBuffer.append(buffer[i])
-      if codeBuffer[-1] == '\\':
-         i += 1
-         codeBuffer[-1] += buffer[i]
-      elif codeBuffer[-1] == '$':
-         codeBuffer[-1] = "\\$"
-
-      i += 1
-
-   return codeBuffer
+   return ''.join(code)
 
 def getMachinesFromRules():
    expressionToMachine = {}
@@ -108,8 +94,7 @@ def analyze(codeBuffer, beginState, expressionToMachine):
 
          for i in range(len(args)):
             if args[i] in uniforms:
-               word = ''.join(codeBuffer[l:pos])
-               word = word.replace('\\\\', '\\')
+               word = codeBuffer[l:pos]
                uniformTable.append([args[i], row, word])
             elif "UDJI_U_STANJE" in args[i]:
                currentState = args[i].split(" ")[1]

@@ -1,5 +1,4 @@
 import difflib
-import glob
 import os
 import time
 
@@ -51,3 +50,5 @@ for folder in os.listdir(TEST_FOLDER):
 
 print(cnt)
 print('total time = ', dt)
+
+""
