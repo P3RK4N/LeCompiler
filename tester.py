@@ -9,16 +9,16 @@ dt = 0
 
 PRINT_DIFF = True
 SPECIFIC_CASE = False
-case = "simplePpjLang"
+case = "09_poredak"
 
 os.chdir(LAB_FOLDER)
 for folder in os.listdir(TEST_FOLDER):
     if SPECIFIC_CASE and not folder == case:
         continue
 
-    tocompile = TEST_FOLDER + '/' + folder + '/' + folder + '.in'
-    regexdef = TEST_FOLDER + '/' + folder + '/' + folder + '.lan'
-    wanted_result = TEST_FOLDER + '/' + folder + '/' + folder + '.out'
+    tocompile = TEST_FOLDER + '/' + folder + '/' + "test" + '.in'
+    regexdef = TEST_FOLDER + '/' + folder + '/' + "test" + '.lan'
+    wanted_result = TEST_FOLDER + '/' + folder + '/' + "test" + '.out'
     
     t = time.time()
 

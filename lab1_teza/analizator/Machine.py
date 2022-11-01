@@ -27,7 +27,7 @@ def splitExpressionOR(expression):
       parts : List
    '''
 
-   parts = []
+   parts = set()
    begin = 0
    count = 0
    pos = 0
@@ -41,12 +41,12 @@ def splitExpressionOR(expression):
       elif char == ")":
          count -= 1
       elif char == '|' and not count:
-         parts.append(expression[begin:pos])
+         parts.add(expression[begin:pos])
          begin = pos+1
       
       pos += 1
-   parts.append(expression[begin:])
-   return parts
+   parts.add(expression[begin:])
+   return list(parts)
    
 def splitExpressionAND(expression):
    '''
@@ -121,6 +121,10 @@ def __make_eNKA(expression):
          elif partAND == "*":
             partsCache[-1][1][epsilon].append(partsCache[-1][0])
             partsCache[-1][2] = True
+
+         #OPTIONAL
+         elif partAND == "$":
+            start[epsilon].append(end)
 
          #CHARACTER
          else:

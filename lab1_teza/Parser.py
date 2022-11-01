@@ -102,7 +102,7 @@ def parseData(data):
       #States
       elif line[0:2] == "%X":
          states = line[3:].split(" ")
-      
+
       #Uniforms
       elif line[0:2] == "%L":
          uniforms = line[3:].split(" ")
@@ -115,7 +115,7 @@ def parseData(data):
 
          for key in regularDefines:
             expression = expression.replace(key, "(" + regularDefines[key] + ")")
-
+         
          args = []
          position += 2
 
@@ -123,9 +123,12 @@ def parseData(data):
             args.append(data[position])
             position += 1
 
-         if state not in rules:
-            rules[state] = {}
+         if (state, expression) in rulePriorities:
+            position += 1
+            continue
 
+         if not state in rules:
+            rules[state] = {}
          
          rules[state][expression] = args
 

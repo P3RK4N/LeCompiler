@@ -1,0 +1,81 @@
+{znak} a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z|A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z
+{znamenka} 0|1|2|3|4|5|6|7|8|9
+{sviZnakovi} \(|\)|\{|\}|\||\*|\\|\$|\t|\n|\_|!|"|#|%|&|'|+|,|-|.|/|0|1|2|3|4|5|6|7|8|9|:|;|<|=|>|?|@|A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|[|]|^|_|`|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z|~
+%X S_pocetno S_jednolinijskiKomentar
+%L IDN BROJ OP_PLUS OP_MINUS OP_PUTA OP_DIJELI OP_PRIDRUZI L_ZAGRADA D_ZAGRADA KR_ZA KR_OD KR_DO KR_AZ
+<S_pocetno>\t|\_
+{
+-
+}
+<S_pocetno>\n
+{
+-
+NOVI_REDAK
+}
+<S_pocetno>//
+{
+-
+UDJI_U_STANJE S_jednolinijskiKomentar
+}
+<S_jednolinijskiKomentar>\n
+{
+-
+NOVI_REDAK
+UDJI_U_STANJE S_pocetno
+}
+<S_jednolinijskiKomentar>{sviZnakovi}
+{
+-
+}
+<S_pocetno>za
+{
+KR_ZA
+}
+<S_pocetno>az
+{
+KR_AZ
+}
+<S_pocetno>od
+{
+KR_OD
+}
+<S_pocetno>do
+{
+KR_DO
+}
+<S_pocetno>({znak})({znak}|{znamenka})*
+{
+IDN
+}
+<S_pocetno>{znamenka}{znamenka}*
+{
+BROJ
+}
+<S_pocetno>+
+{
+OP_PLUS
+}
+<S_pocetno>-
+{
+OP_MINUS
+}
+<S_pocetno>\*
+{
+OP_PUTA
+}
+<S_pocetno>/
+{
+OP_DIJELI
+}
+<S_pocetno>=
+{
+OP_PRIDRUZI
+}
+<S_pocetno>\(
+{
+L_ZAGRADA
+}
+<S_pocetno>\)
+{
+D_ZAGRADA
+}

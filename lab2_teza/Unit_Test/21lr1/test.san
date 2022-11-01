@@ -1,0 +1,13 @@
+%V <S> <X> <A> <B>
+%T a b
+%Syn a
+<S>
+ <X> <S>
+ <X>
+<X>
+ <A> a <A> b
+ <B> b <B> a
+<A>
+ $
+<B>
+ $
