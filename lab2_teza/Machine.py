@@ -1,5 +1,4 @@
 from collections import defaultdict as dd
-from tkinter import E
 import Util
 
 __DEBUG__ = True
@@ -29,9 +28,12 @@ __stateLHS_to_eState = None
 __nonEnding_to_startSet = None
 __eNKA_start = None
 __stateID_to_subStateName = None
+__stateID_to_subState = None
 
 #Vars for DKA
-__NKA_stateID_to_eNKA_stateNamesSet = None
+#beggining -> 1
+__DKA_stateIndex_to_eNKA_stateID_set = None
+__DKA_stateIndex_to_DKA_state = None
 
 
 
@@ -74,6 +76,8 @@ def __setDirectStarts():
    for nonEnding,rhsProductions in __productions.items():
       currentDirectStarts = set()
       for rhsProduction in rhsProductions:
+         if len(rhsProduction) == 1 and rhsProduction[0] == "$":
+            continue
          for productionPart in rhsProduction:
             currentDirectStarts.add(productionPart)
             if not productionPart in __emptyNonEndings:
@@ -123,14 +127,14 @@ def __setStarts():
 #Creates dictionary of states[stateName] -> dictionary of subStates[subStateName] -> dictionary substate
 #Creates epsilon state that connects to all beginnings of states of that LHS production
 def __createStates():
-   global __stateName_to_subStates, __stateLHS_to_eState, __stateID_to_subStateName
+   global __stateName_to_subStates, __stateLHS_to_eState, __stateID_to_subStateName, __stateID_to_subState
    __stateName_to_subStates = dict()
    __stateLHS_to_eState = dict()
    __stateID_to_subStateName = dict()
+   __stateID_to_subState = dict()
 
    for lhsProduction, rhsProductions in __productions.items():
-      epsilonState = dict()
-      epsilonState[EPSILON] = list()
+      epsilonState = dd(list)
       __stateLHS_to_eState[lhsProduction] = epsilonState
 
       for rhsProduction in rhsProductions:
@@ -139,14 +143,26 @@ def __createStates():
          if not stateName in __stateName_to_subStates:
             __stateName_to_subStates[stateName] = dict()
 
-         for i in range(len(rhsProduction)+1):
-            subState = [lhsProduction, ARROW] + rhsProduction[:i] + [DOT] + rhsProduction[i:]
+         #Pure epsilon production
+         if len(rhsProduction) == 1 and rhsProduction[0] == "$":
+            subState = [lhsProduction, ARROW] + [DOT]
             subStateName = ' '.join(subState)
-            subStateDict = dict()
+            subStateDict = dd(list)
             __stateID_to_subStateName[id(subStateDict)] = subStateName
+            __stateID_to_subState[id(subStateDict)] = subStateDict
             __stateName_to_subStates[stateName][subStateName] = subStateDict
-            if i == 0:
-               epsilonState[EPSILON].append(subStateDict)
+            epsilonState[EPSILON].append(subStateDict)
+         #Non epsilon production
+         else:
+            for i in range(len(rhsProduction)+1):
+               subState = [lhsProduction, ARROW] + rhsProduction[:i] + [DOT] + rhsProduction[i:]
+               subStateName = ' '.join(subState)
+               subStateDict = dd(list)
+               __stateID_to_subStateName[id(subStateDict)] = subStateName
+               __stateID_to_subState[id(subStateDict)] = subStateDict
+               __stateName_to_subStates[stateName][subStateName] = subStateDict
+               if i == 0:
+                  epsilonState[EPSILON].append(subStateDict)
 
    if __DEBUG__:
       print("SUBSTATES:")
@@ -180,10 +196,15 @@ def __connectStates():
       for rhsList in __productions[currentNonEnding]:
          stateName = currentNonEnding + " -> " + ' '.join(rhsList)
 
+         #ADDS BEGINNINGS TO LIST
          if currentNonEnding == __startingNonEnding:
             subState = [currentNonEnding, ARROW] + [DOT] + rhsList
             subStateName = ' '.join(subState)
             __eNKA_start.append(__stateName_to_subStates[stateName][subStateName])
+
+         #Skip epsilon productions
+         if len(rhsList) == 1 and rhsList[0] == "$":
+            continue
 
          for i in range(len(rhsList)):
             subState = [currentNonEnding, ARROW] + rhsList[:i] + [DOT] + rhsList[i:]
@@ -193,31 +214,34 @@ def __connectStates():
             step = rhsList[i]
 
             #Connect current iteration of state to next iteration of same state
-            __stateName_to_subStates[stateName][subStateName][step] = __stateName_to_subStates[stateName][nextSubStateName]
+            __stateName_to_subStates[stateName][subStateName][step].append(__stateName_to_subStates[stateName][nextSubStateName])
             
             #Connect to epsilon of current step if its nonEnding
             if step in __stateLHS_to_eState:
-               __stateName_to_subStates[stateName][subStateName][EPSILON] = __stateLHS_to_eState[step]
+               __stateName_to_subStates[stateName][subStateName][EPSILON].append(__stateLHS_to_eState[step])
             
             #Transfer starts set
-            pos = i+1
-            while pos < len(rhsList):
-               nextStep = rhsList[pos]
-               if nextStep in __nonEndings:
-                  if nextStep in __starts:
-                     for ending in __starts[nextStep]:
-                        __nonEnding_to_startSet[step].add(ending)
-                  if not nextStep in __emptyNonEndings:
-                     break 
-               else:
-                  __nonEnding_to_startSet[step].add(nextStep)
-                  break
+            if step in __nonEndings:
+               pos = i+1
+               while pos < len(rhsList):
+                  nextStep = rhsList[pos]
+                  if nextStep in __nonEndings:
+                     if nextStep in __starts:
+                        for ending in __starts[nextStep]:
+                           __nonEnding_to_startSet[step].add(ending)
+                     if not nextStep in __emptyNonEndings:
+                        break
+                     else:
+                        pos += 1
+                  else:
+                     __nonEnding_to_startSet[step].add(nextStep)
+                     break
+                  
+               if pos == len(rhsList) and step in __starts:
+                  for ending in __nonEnding_to_startSet[currentNonEnding]:
+                     __nonEnding_to_startSet[step].add(ending)
 
-            if pos == len(rhsList):
-               for ending in __nonEnding_to_startSet[currentNonEnding]:
-                  __nonEnding_to_startSet[step].add(ending)
-
-            #Add to step to DFS if nonEnding
+            #Add step to DFS if nonEnding
             if step in __productions and not step in visited:
                visited.add(step)
                DFS.append(step)
@@ -232,10 +256,121 @@ def __connectStates():
 
    if __DEBUG__:
       print("CONNECTED STATES!")
+      for stateID,state in __stateID_to_subState.items():
+         if not len(state):
+            continue
+         print(__stateID_to_subStateName[stateID], "connected to:")
+         print()
+         for input,nextStates in state.items():
+            for nextState in nextStates:
+               if id(nextState) in __stateID_to_subStateName:
+                  print(input,"#",__stateID_to_subStateName[id(nextState)])
+               else:
+                  print("EPSILON")
+         print()
 
-#UNFINISHED
+      print("NON ENDINGS TO STARTS:")
+      for nonEnding,starts in __nonEnding_to_startSet.items():
+         print(nonEnding, starts)
+
+      print()
+      print()
+
+#UNDEBUGGED
+#Gets epsilon environment and removes empty states
+def __getEpsilon(states):
+   visited = set([id(state) for state in states])
+   DFS = list(states)
+
+   while DFS:
+      currentState = DFS.pop()
+      for nextState in currentState[EPSILON]:
+         if not id(nextState) in visited:
+            DFS.append(nextState)
+            visited.add(id(nextState))
+            states.append(nextState)
+   
+   return [state for state in states if id(state) in __stateID_to_subStateName]
+
+#UNDEBUGGED
+#Steps NKA
+def __stepNKA(currentStates, input):
+   nextStates = []
+   visited = set()
+   
+   for currentState in currentStates:
+      if input in currentState:
+         for nextState in currentState[input]:
+            if not id(nextState) in visited:
+               visited.add(id(nextState))
+               nextStates.append(nextState)
+   return nextStates
+
+#UNDEBUGGED
 #Creates DKA from eNKA
 def __make_DKA():
+   global __DKA_stateIndex_to_eNKA_stateID_set, __DKA_stateIndex_to_DKA_state
+   __DKA_stateIndex_to_eNKA_stateID_set = dict()
+   __DKA_stateIndex_to_DKA_state = dict()
+
+   beginStates = __getEpsilon([__eNKA_start])
+   beginStatesID_set = set([id(state) for state in beginStates])
+
+   __DKA_stateIndex_to_eNKA_stateID_set[1] = beginStatesID_set
+   __DKA_stateIndex_to_DKA_state[1] = dict()
+   DFS = [1]
+
+   #Getting all transitions, 2**len(__stateID_to_subStateName) * len(inputs) possible -> VERY HOT PATH (NP complexity)
+   inputs = set.union(__nonEndings, __endings)
+   while DFS:
+      current_DKA_stateID = DFS.pop()
+      currentStates = list([__stateID_to_subState[stateID] for stateID in __DKA_stateIndex_to_eNKA_stateID_set[current_DKA_stateID]])
+
+      for input in inputs:
+         nextStates = __stepNKA(currentStates, input)
+         nextStates = __getEpsilon(nextStates)
+         if len(nextStates) == 0:
+            continue
+         nextStateID_set = set([id(nextState) for nextState in nextStates])
+         next_DKA_index = -1
+         #HOT PART - finding if dka state already exists
+         for DKA_state_index, stateNamesSet in __DKA_stateIndex_to_eNKA_stateID_set.items():
+            if stateNamesSet == nextStateID_set:
+               next_DKA_index = DKA_state_index
+               break
+         if next_DKA_index == -1:
+            next_DKA_index = len(__DKA_stateIndex_to_eNKA_stateID_set) + 1
+            __DKA_stateIndex_to_DKA_state[next_DKA_index] = dict()
+            __DKA_stateIndex_to_eNKA_stateID_set[next_DKA_index] = nextStateID_set
+            DFS.append(next_DKA_index)
+
+         #Connect dka state to next via input
+         __DKA_stateIndex_to_DKA_state[current_DKA_stateID][input] = __DKA_stateIndex_to_DKA_state[next_DKA_index]
+
+
+   if __DEBUG__:
+      print()
+      print("MADE DKA!")
+      print()
+
+      for dkaState,eNKA_id_set in __DKA_stateIndex_to_eNKA_stateID_set.items():
+         print(dkaState)
+         print("--------------------")
+         for eNKA_stateID in eNKA_id_set:
+            print(__stateID_to_subStateName[eNKA_stateID]) 
+         print("--------------------")
+      
+      print()
+
+#UNFINISHED
+#Minimize dka
+#TODO(P3RK4N): implement if necessary
+def __minimizeDKA():
+   return
+
+#UNFINISHED
+def __createTable():
+
    return
 
 #UNFINISHED
@@ -243,6 +378,7 @@ def __make_eNKA():
    __setStarts()
    __createStates()
    __connectStates()
+   __make_DKA()
 
    return
 
