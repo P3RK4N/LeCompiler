@@ -3,13 +3,13 @@ import os
 import time
 
 cnt = 0
-LAB_FOLDER = 'lab1_teza'
+LAB_FOLDER = 'lab2_teza'
 TEST_FOLDER = 'Unit_Test'
 dt = 0
 
-PRINT_DIFF = True
-SPECIFIC_CASE = False
-case = "09_poredak"
+PRINT_DIFF = False
+SPECIFIC_CASE = True
+case = "23ppjC_4"
 
 os.chdir(LAB_FOLDER)
 for folder in os.listdir(TEST_FOLDER):
@@ -17,13 +17,13 @@ for folder in os.listdir(TEST_FOLDER):
         continue
 
     tocompile = TEST_FOLDER + '/' + folder + '/' + "test" + '.in'
-    regexdef = TEST_FOLDER + '/' + folder + '/' + "test" + '.lan'
+    regexdef = TEST_FOLDER + '/' + folder + '/' + "test" + '.san'
     wanted_result = TEST_FOLDER + '/' + folder + '/' + "test" + '.out'
     
     t = time.time()
 
-    os.system('python3 GLA.py < ' + regexdef)
-    os.system('python3 analizator/LA.py < ' + tocompile +' > out.txt')
+    os.system('python3 GSA.py < ' + regexdef)
+    os.system('python3 analizator/SA.py < ' + tocompile +' > out.txt')
 
     dt += time.time()-t
 

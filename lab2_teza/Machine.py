@@ -1,4 +1,5 @@
 from collections import defaultdict as dd
+from collections import deque
 import Util
 
 __DEBUG__ = True
@@ -8,6 +9,11 @@ ARROW = "->"
 BEGIN_STATE = "Q0"
 EPSILON = "$"
 EOF = "@EOF@"
+
+REDUCE = "REDUCE"
+ACCEPT = "ACCEPT"
+MOVE = "MOVE"
+PLACE = "PLACE"
 
 #Initial vars
 __nonEndings = None
@@ -21,6 +27,8 @@ __emptyNonEndings = None
 __directStarts = None
 #Non-ending to all ending starts
 __starts = None
+#Root productions
+__rootProductions = None
 
 #Vars for eNKA
 __stateName_to_subStates = None
@@ -34,8 +42,10 @@ __stateID_to_subState = None
 #beggining -> 1
 __DKA_stateIndex_to_eNKA_stateID_set = None
 __DKA_stateIndex_to_DKA_state = None
+__DKA_ID_to_stateIndex = None
 
-
+#Action and NewState Table
+__tableSA = None
 
 #UNDEBUGGED
 #Sets emptyNonEndings (with production to EPSILON or production to emptyNonEndings excusively)
@@ -135,7 +145,10 @@ def __createStates():
 
    for lhsProduction, rhsProductions in __productions.items():
       epsilonState = dd(list)
-      __stateLHS_to_eState[lhsProduction] = epsilonState
+      if not lhsProduction in __stateLHS_to_eState:
+         __stateLHS_to_eState[lhsProduction] = epsilonState
+      else:
+         epsilonState = __stateLHS_to_eState[lhsProduction]
 
       for rhsProduction in rhsProductions:
          stateName = lhsProduction + " -> " + ' '.join(rhsProduction)
@@ -165,7 +178,6 @@ def __createStates():
                   epsilonState[EPSILON].append(subStateDict)
 
    if __DEBUG__:
-      print("SUBSTATES:")
       Util.printStates(__stateName_to_subStates,5)
       print()
 
@@ -177,15 +189,16 @@ def __createStates():
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!UNDEBUGGED!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 #Connect states
 def __connectStates():
-   global __nonEnding_to_startSet, __eNKA_start
+   global __nonEnding_to_startSet, __eNKA_start, __rootProductions
    __nonEnding_to_startSet = dd(set)
    __eNKA_start = list()
+   __rootProductions = set()
 
-   DFS = [__startingNonEnding]
-   visited = set(DFS)
+   BFS = deque([__startingNonEnding])
+   visited = set(BFS)
    
-   while DFS:
-      currentNonEnding = DFS.pop()
+   while BFS:
+      currentNonEnding = BFS.popleft()
 
       #Add EOF to begin state
       if currentNonEnding == __startingNonEnding:
@@ -195,6 +208,10 @@ def __connectStates():
 
       for rhsList in __productions[currentNonEnding]:
          stateName = currentNonEnding + " -> " + ' '.join(rhsList)
+
+         #ADDS TO ROOT PRODUCTIONS
+         if currentNonEnding == __startingNonEnding:
+            __rootProductions.add(stateName)
 
          #ADDS BEGINNINGS TO LIST
          if currentNonEnding == __startingNonEnding:
@@ -244,7 +261,7 @@ def __connectStates():
             #Add step to DFS if nonEnding
             if step in __productions and not step in visited:
                visited.add(step)
-               DFS.append(step)
+               BFS.append(step)
    
    #Get eNKA starting state
    trueBegin_eNKA = dict()
@@ -272,6 +289,10 @@ def __connectStates():
       print("NON ENDINGS TO STARTS:")
       for nonEnding,starts in __nonEnding_to_startSet.items():
          print(nonEnding, starts)
+      print()
+
+      print("ROOT PRODUCTIONS")
+      print(__rootProductions)
 
       print()
       print()
@@ -309,15 +330,17 @@ def __stepNKA(currentStates, input):
 #UNDEBUGGED
 #Creates DKA from eNKA
 def __make_DKA():
-   global __DKA_stateIndex_to_eNKA_stateID_set, __DKA_stateIndex_to_DKA_state
+   global __DKA_stateIndex_to_eNKA_stateID_set, __DKA_stateIndex_to_DKA_state, __DKA_ID_to_stateIndex
    __DKA_stateIndex_to_eNKA_stateID_set = dict()
    __DKA_stateIndex_to_DKA_state = dict()
+   __DKA_ID_to_stateIndex = dict()
 
    beginStates = __getEpsilon([__eNKA_start])
    beginStatesID_set = set([id(state) for state in beginStates])
 
    __DKA_stateIndex_to_eNKA_stateID_set[1] = beginStatesID_set
    __DKA_stateIndex_to_DKA_state[1] = dict()
+   __DKA_ID_to_stateIndex[id(__DKA_stateIndex_to_DKA_state[1])] = 1
    DFS = [1]
 
    #Getting all transitions, 2**len(__stateID_to_subStateName) * len(inputs) possible -> VERY HOT PATH (NP complexity)
@@ -341,6 +364,7 @@ def __make_DKA():
          if next_DKA_index == -1:
             next_DKA_index = len(__DKA_stateIndex_to_eNKA_stateID_set) + 1
             __DKA_stateIndex_to_DKA_state[next_DKA_index] = dict()
+            __DKA_ID_to_stateIndex[id(__DKA_stateIndex_to_DKA_state[next_DKA_index])] = next_DKA_index 
             __DKA_stateIndex_to_eNKA_stateID_set[next_DKA_index] = nextStateID_set
             DFS.append(next_DKA_index)
 
@@ -368,19 +392,55 @@ def __make_DKA():
 def __minimizeDKA():
    return
 
-#UNFINISHED
-def __createTable():
+#UNDEBUGGED
+#Makes action+newState table
+def __makeTable():
+   global __tableSA
+   __tableSA = dd(lambda : dd(list))
 
-   return
+   #CREATE ACCEPT AND REDUCE
+   for stateNameDKA, stateID_set_eNKA in __DKA_stateIndex_to_eNKA_stateID_set.items():
+      for stateID_eNKA in stateID_set_eNKA:
+         stateName_eNKA = __stateID_to_subStateName[stateID_eNKA]
 
-#UNFINISHED
+         if stateName_eNKA[-len(DOT):] == DOT:
+            lhsProduction = stateName_eNKA.split(" ")[0]
+            productionName = stateName_eNKA[:-2]
+
+            #In case of pure epsilon production
+            if len(productionName.split(" ")) == 2:
+               productionName += " $"
+
+            starts_set = __nonEnding_to_startSet[lhsProduction]
+            for input in starts_set:
+               if productionName in __rootProductions:
+                  __tableSA[stateNameDKA][input].append((ACCEPT, productionName))
+               else:
+                  __tableSA[stateNameDKA][input].append((REDUCE, productionName))
+
+   #CREATE MOVE AND PLACE
+   for stateNameDKA, stateDKA in __DKA_stateIndex_to_DKA_state.items():
+      for input, nextState in stateDKA.items():
+         nextDKA_index = __DKA_ID_to_stateIndex[id(nextState)]
+         if input in __endings:
+            __tableSA[stateNameDKA][input].append((MOVE, nextDKA_index))
+         else:
+            __tableSA[stateNameDKA][input].append((PLACE, nextDKA_index))
+
+   #OTHER IS DISCARD
+   if __DEBUG__:
+      print("SA TABLE:")
+      for currentIndex, transitions in __tableSA.items():
+         for input,transition in transitions.items():
+            print(currentIndex, "-", input.rjust(5), "-", transition)
+      print()
+      print()
+            
+#UNDEBUGGED
 def __make_eNKA():
    __setStarts()
    __createStates()
    __connectStates()
-   __make_DKA()
-
-   return
 
 #Initialises initial vars
 def __initGlobals(nonEndings, startingNonEnding, endings, synEndings, productions):
@@ -394,6 +454,9 @@ def __initGlobals(nonEndings, startingNonEnding, endings, synEndings, production
    if __DEBUG__:
       print("INITIALIZED GLOBALS")
 
-def make_eNKA(nonEndings, startingNonEnding, endings, synEndings, productions):
+def getTableSA(nonEndings, startingNonEnding, endings, synEndings, productions):
    __initGlobals(nonEndings, startingNonEnding, endings, synEndings, productions)
-   return __make_eNKA()
+   __make_eNKA()
+   __make_DKA()
+   __makeTable()
+   return __tableSA, __nonEnding_to_startSet
