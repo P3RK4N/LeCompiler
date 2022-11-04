@@ -2,7 +2,7 @@ from collections import defaultdict as dd
 from collections import deque
 import Util
 
-__DEBUG__ = True
+__DEBUG__ = False
 
 DOT = "@"
 ARROW = "->"
@@ -240,21 +240,15 @@ def __connectStates():
             #Transfer starts set
             if step in __nonEndings:
                pos = i+1
-               while pos < len(rhsList):
+               if pos < len(rhsList):
                   nextStep = rhsList[pos]
                   if nextStep in __nonEndings:
-                     if nextStep in __starts:
-                        for ending in __starts[nextStep]:
-                           __nonEnding_to_startSet[step].add(ending)
-                     if not nextStep in __emptyNonEndings:
-                        break
-                     else:
-                        pos += 1
+                     for ending in __starts[nextStep]:
+                        __nonEnding_to_startSet[step].add(ending)
                   else:
                      __nonEnding_to_startSet[step].add(nextStep)
-                     break
-                  
-               if pos == len(rhsList) and step in __starts:
+
+               else:
                   for ending in __nonEnding_to_startSet[currentNonEnding]:
                      __nonEnding_to_startSet[step].add(ending)
 

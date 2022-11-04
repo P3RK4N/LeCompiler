@@ -38,7 +38,7 @@ import fileinput
 EOF = "@EOF@"
 BEGIN = "@FOE@"
 EPSILON = "$"
-__DEBUG__ = True
+__DEBUG__ = False
 
 REDUCE = "REDUCE"
 ACCEPT = "ACCEPT"
