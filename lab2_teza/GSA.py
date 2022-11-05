@@ -38,7 +38,7 @@ import fileinput
 EOF = "@EOF@"
 BEGIN = "@FOE@"
 EPSILON = "$"
-__DEBUG__ = True
+__DEBUG__ = False
 
 REDUCE = "REDUCE"
 ACCEPT = "ACCEPT"
@@ -99,13 +99,33 @@ def parserSA():
             action, info = action_info_list[1]
       #REDUCE/ACCEPT (REDUCE/REDUCE)
       elif action_info_list[0][0] == REDUCE and action_info_list[1][0] == REDUCE:
-         if __DEBUG__:
-            print("##################REDUCE/REDUCE################")
-         p = -1000000000
+         action_info_list.sort(key = lambda action_info : -priority[action_info[1]])
          for action_info in action_info_list:
-            if priority[action_info[1]] > p:
-               p = priority[action_info[1]]
+            if action == None:
                action, info = action_info
+            
+            tmpAction, tmpInfo = action_info
+            lhsProduction, rhsProductions = tmpInfo.split(" -> ")
+            rhsProductions = rhsProductions.split(" ")
+
+            if len(rhsProductions) == 1 and rhsProductions[0] == EPSILON:
+               rhsProductions.pop()
+            
+            if len(stack) < len(rhsProductions)*2+2:
+               continue
+
+            prevState = stack[-len(rhsProductions)*2-1][0]
+
+            if not lhsProduction in tableSA[prevState]:
+               continue
+               
+            nextState = tableSA[prevState][lhsProduction][0][1]
+
+            if not inputChar in tableSA[nextState]:
+               continue
+
+            action, info = action_info
+            break
 
 
       if __DEBUG__:

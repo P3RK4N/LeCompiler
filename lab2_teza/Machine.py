@@ -2,7 +2,8 @@ from collections import defaultdict as dd
 from collections import deque
 import Util
 
-__DEBUG__ = True
+__DEBUG__ = False
+__DEBUG_ITEM__ = "<init_deklarator> -> <izravni_deklarator> OP_PRIDRUZI <inicijalizator>"
 
 DOT = "@"
 ARROW = "->"
@@ -197,6 +198,8 @@ def __connectStates():
    BFS = deque([__startingNonEnding])
    visited = set(BFS)
    
+   nonEnding_to_parent = dd(set)
+
    while BFS:
       currentNonEnding = BFS.popleft()
 
@@ -255,6 +258,7 @@ def __connectStates():
                      break
                   
                if pos == len(rhsList) and step in __starts:
+                  nonEnding_to_parent[step].add(currentNonEnding)
                   for ending in __nonEnding_to_startSet[currentNonEnding]:
                      __nonEnding_to_startSet[step].add(ending)
 
@@ -262,6 +266,21 @@ def __connectStates():
             if step in __productions and not step in visited:
                visited.add(step)
                BFS.append(step)
+
+   #Extend __nonEnding_to_startSet
+   change = True
+   while change:
+      change = False
+      for nonEnding, parents in nonEnding_to_parent.items():
+         setSize = len(__nonEnding_to_startSet[nonEnding])
+         for parent in parents:
+            for endingStart in __nonEnding_to_startSet[parent]:
+               __nonEnding_to_startSet[nonEnding].add(endingStart)
+         if setSize < len(__nonEnding_to_startSet[nonEnding]):
+            change = True
+      
+      if __DEBUG__:
+         print("CHANGE")
    
    #Get eNKA starting state
    trueBegin_eNKA = dict()

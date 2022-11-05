@@ -7,9 +7,9 @@ LAB_FOLDER = 'lab2_teza'
 TEST_FOLDER = 'Unit_Test'
 dt = 0
 
-PRINT_DIFF = False
-SPECIFIC_CASE = True
-case = "23ppjC_4"
+PRINT_DIFF = True
+SPECIFIC_CASE = False
+case = "19lr1"
 
 os.chdir(LAB_FOLDER)
 for folder in os.listdir(TEST_FOLDER):

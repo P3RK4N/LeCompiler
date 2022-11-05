@@ -34,11 +34,15 @@ def parseData(data):
             productions[line] = []
          
          lhsProduction = line
+         
 
          pos += 1
          while pos < len(data) and data[pos][0] == " ":
-            priorities[lhsProduction + " ->" + data[pos]] = priority
+            production = lhsProduction + " ->" + data[pos]
+            priorities[production] = priority
             priority -= 1
+
+
             productions[line].append(data[pos][1:].split(" "))
             pos += 1
          
