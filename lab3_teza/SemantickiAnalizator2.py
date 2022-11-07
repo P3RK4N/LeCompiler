@@ -4,14 +4,14 @@ from collections import deque, defaultdict as dd
 #DEBUGGING & GLOBALS #######################################################################################
 __DEBUG__ = False
 
-PARENT = "PARENT"
-KIDS = "KIDS"
-SCOPE = "SCOPE"
-TYPE = "TYPE"
-NAME = "NAME"
-FUNC = "FUNC"
-DECL = "DECL"
-LVAL = "LVAL"
+PARENT = "PARENT" #Parent Node
+KIDS = "KIDS"     #Kid Nodes
+SCOPE = "SCOPE"   #Scope identities
+TYPE = "TYPE"     #Type of scope identity
+NAME = "NAME"     #Name of scope identity (Redundant)
+FUNC = "FUNC"     #Current function
+DECL = "DECL"     #Declared, but undefined identities in this scope
+LVAL = "LVAL"     #Is identity an lvalue?
 
 INT = "INT"
 CONST_INT = "CONST INT"
@@ -41,8 +41,8 @@ castDict = {
 }
 
 genTreeInput = deque()
-prevGenTree = []
-currentElement = []
+inFunction = False
+inLoop = False
 
 #Current scope
 #scopeNode[PARENT] = scopeNodeParent if not global else None
@@ -54,6 +54,7 @@ globalScopeNode = {
    DECL : dict(),
    SCOPE : dd(lambda : dd(None))
 }
+
 currentScope = globalScopeNode
 
 def throwError(e = ""):
