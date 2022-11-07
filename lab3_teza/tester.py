@@ -6,9 +6,9 @@ cnt = 0
 TEST_FOLDER = 'Unit_Test'
 dt = 0
 
-PRINT_DIFF = False
-SPECIFIC_CASE = True
-case = "01_idn"
+PRINT_DIFF = True
+SPECIFIC_CASE = False
+case = "03_niz_znakova"
 
 for folder in os.listdir(TEST_FOLDER):
     if SPECIFIC_CASE and not folder == case:

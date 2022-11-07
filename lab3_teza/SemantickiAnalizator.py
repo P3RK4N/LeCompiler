@@ -2,12 +2,14 @@ import fileinput
 from collections import deque, defaultdict as dd
 
 #DEBUGGING & ERRORS #######################################################################################
-__DEBUG__ = True
+__DEBUG__ = False
+
 __ERROR__ = False
+__ERROR_INFO__ = None
 
 PARENT = "PARENT"
 KIDS = "KIDS"
-SCOPE = "DECL"
+SCOPE = "SCOPE"
 TYPE = "TYPE"
 NAME = "NAME"
 FUNC = "FUNC"
@@ -20,9 +22,43 @@ CONST = "CONST"
 FUNC = "FUNC"
 VOID = "VOID"
 
-def throwError():
-   print(genTreeInput[0])
+genTreeInput = deque()
+prevGenTree = []
+currentElement = []
+
+#Current scope
+#scopeNode[PARENT] = scopeNodeParent if not global else None
+#scopeNode[DECL] = dict of declarations
+globalScopeNode = {
+   PARENT : None,
+   KIDS: [],
+   FUNC : None,
+   DECL : dict(),
+   SCOPE : dd(lambda : dd(None))
+}
+currentScope = globalScopeNode
+
+
+castDict = {
+   INT : {INT, INT + " " + CONST, CHAR, CHAR + " " + CONST},
+   INT + " " + CONST : {INT, INT + " " + CONST, CHAR, CHAR + " " + CONST},
+
+   CHAR : {INT, INT + " " + CONST, CHAR, CHAR + " " + CONST},
+   CHAR + " " + CONST : {INT, INT + " " + CONST, CHAR, CHAR + " " + CONST}
+}
+
+def throwError(id = ""):
+   global __ERROR__, __ERROR_INFO__
    __ERROR__ = True
+   if not __ERROR_INFO__:
+      __ERROR_INFO__ = "ERROR " + str(id) + " -> " + genTreeInput[0]
+
+def throwErrorExact(e):
+   global __ERROR__, __ERROR_INFO__
+   __ERROR__ = True
+   if not __ERROR_INFO__:
+      __ERROR_INFO__ = e
+
 
 ###########################################################################################################
 #PRIMITIVES ###############################################################################################
@@ -30,24 +66,22 @@ def throwError():
    
 #IDN ######################################################################################################
 #IDN.ime je deklarirano
-def IDN():
+def IDN(info = None):
    if __ERROR__:
-      return
+      return None, None, None
    
+   global currentScope
+
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, "IDN" in currentElement)
 
    idn, line, name = currentElement.split(" ")
 
-   #Validation-------------------
    scope = currentScope
    while scope and not name in currentScope[SCOPE]:
       scope = scope[PARENT]
-   if scope == None:
-      throwError()
-   #----------------------------
-      
+
    #TYPE, LVAL, NAME
    if scope != None:
       return scope[SCOPE][name][TYPE], scope[SCOPE][name][LVAL], name
@@ -58,7 +92,7 @@ def IDN():
 #BROJ.val je u rasponu int
 def BROJ():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
@@ -67,11 +101,6 @@ def BROJ():
    br, line, value = currentElement.split(" ")
    value = int(value)
 
-   #Validation----------------
-   if value < -2147483648 or value > 2147483647:
-      throwError()
-   #---------------------------
-
    #TYPE, LVAL, NAME
    return INT, False, value
 
@@ -79,7 +108,7 @@ def BROJ():
 #Valid character
 def ZNAK():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
@@ -97,13 +126,13 @@ def ZNAK():
    #------------------
          
    #TYPE, LVAL, NAME
-   return CHAR, False, None
+   return CHAR, False, value
 
 #NIZ ZNAKOVA ############################################################################################
 #Valid char array
-def NIZ_ZNAKOVA():
+def NIZ_ZNAKOVA(parent = None):
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
@@ -116,7 +145,7 @@ def NIZ_ZNAKOVA():
       throwError()
    else:   
       for pos in range(1,len(value)-1):
-         if value[pos] == "\\" and (pos == len(value-2) or not value[pos+1] in {'\\', "t", "n", "\"", "\'", "0"}):
+         if value[pos] == "\\" and (pos == len(value)-2 or not value[pos+1] in {'\\', "t", "n", "\"", "\'", "0"}):
             throwError()
    #---------------------------------------
 
@@ -126,442 +155,442 @@ def NIZ_ZNAKOVA():
 #L_ZAGRADA ############################################################################################
 def L_ZAGRADA():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "L_ZAGRADA")
 
-   return
+   return None, None, None
 
-#L_ZAGRADA ############################################################################################
+#D_ZAGRADA ############################################################################################
 def D_ZAGRADA():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "D_ZAGRADA")
 
-   return
+   return None, None, None
 
 #L_UGL_ZAGRADA ########################################################################################
 def L_UGL_ZAGRADA():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "L_UGL_ZAGRADA")
 
-   return
+   return None, None, None
 
 #D_UGL_ZAGRADA ########################################################################################
 def D_UGL_ZAGRADA():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "D_UGL_ZAGRADA")
 
-   return
+   return None, None, None
 
 #OP_INC ##############################################################################################
 def OP_INC():
    if __ERROR__:
-      return
+      return None, None, None
 
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "OP_INC")
 
-   return
+   return None, None, None
 
 #OP_DEC ##############################################################################################
 def OP_DEC():
    if __ERROR__:
-      return
+      return None, None, None
 
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "OP_DEC")
 
-   return
+   return None, None, None
 
 #ZAREZ ################################################################################################
 def ZAREZ():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "ZAREZ")
 
-   return
+   return None, None, None
 
 #PLUS #################################################################################################
 def PLUS():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "PLUS")
 
-   return
+   return None, None, None
 
 #MINUS #################################################################################################
 def MINUS():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "MINUS")
 
-   return
+   return None, None, None
 
 #OP_TILDA #################################################################################################
 def OP_TILDA():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "OP_TILDA")
 
-   return
+   return None, None, None
 
 #OP_NEG #################################################################################################
 def OP_NEG():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "OP_NEG")
 
-   return
+   return None, None, None
 
 #KR_CONST ###############################################################################################
 def KR_CONST():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "KR_CONST")
 
-   return
+   return None, None, None
 
 #KR_VOID ###############################################################################################
 def KR_VOID():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "KR_VOID")
 
-   return
+   return None, None, None
 
 #KR_CHAR ###############################################################################################
 def KR_CHAR():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "KR_CHAR")
 
-   return
+   return None, None, None
 
 #KR_INT ###############################################################################################
 def KR_INT():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "KR_INT")
 
-   return
+   return None, None, None
 
 #OP_PUTA ###############################################################################################
 def OP_PUTA():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "OP_PUTA")
 
-   return
+   return None, None, None
 
 #OP_DIJELI ###############################################################################################
 def OP_DIJELI():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "OP_DIJELI")
 
-   return
+   return None, None, None
 
 #OP_MOD ###############################################################################################
 def OP_MOD():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "OP_MOD")
 
-   return
+   return None, None, None
 
 #OP_LT ###############################################################################################
 def OP_LT():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "OP_LT")
 
-   return
+   return None, None, None
 
 #OP_GT ###############################################################################################
 def OP_GT():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "OP_GT")
 
-   return
+   return None, None, None
 
 #OP_LTE ###############################################################################################
 def OP_LTE():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "OP_LTE")
 
-   return
+   return None, None, None
 
 #OP_GTE ###############################################################################################
 def OP_GTE():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "OP_GTE")
 
-   return
+   return None, None, None
 
 #OP_EQ ###############################################################################################
 def OP_EQ():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "OP_EQ")
 
-   return
+   return None, None, None
 
 #OP_NEQ ###############################################################################################
 def OP_NEQ():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "OP_NEQ")
 
-   return
+   return None, None, None
 
 #OP_BIN_I ###############################################################################################
 def OP_BIN_I():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "OP_BIN_I")
 
-   return
+   return None, None, None
 
 #OP_BIN_XILI ###############################################################################################
 def OP_BIN_XILI():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "OP_BIN_XILI")
 
-   return
+   return None, None, None
 
 #OP_BIN_ILI ###############################################################################################
 def OP_BIN_ILI():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "OP_BIN_ILI")
 
-   return
+   return None, None, None
 
 #OP_I ###############################################################################################
 def OP_I():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "OP_I")
 
-   return
+   return None, None, None
 
 #OP_ILI ###############################################################################################
 def OP_ILI():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "OP_ILI")
 
-   return
+   return None, None, None
 
 #OP_PRIDRUZI ###############################################################################################
 def OP_PRIDRUZI():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "OP_PRIDRUZI")
 
-   return
+   return None, None, None
 
 #L_VIT_ZAGRADA ###############################################################################################
 def L_VIT_ZAGRADA():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "L_VIT_ZAGRADA")
 
-   return
+   return None, None, None
 
 #D_VIT_ZAGRADA ###############################################################################################
 def D_VIT_ZAGRADA():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "D_VIT_ZAGRADA")
 
-   return
+   return None, None, None
 
 #TOCKAZAREZ ###############################################################################################
 def TOCKAZAREZ():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "TOCKAZAREZ")
 
-   return
+   return None, None, None
 
 #KR_IF ###############################################################################################
 def KR_IF():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "KR_IF")
 
-   return
+   return None, None, None
 
 #KR_ELSE ###############################################################################################
 def KR_ELSE():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "KR_ELSE")
 
-   return
+   return None, None, None
 
 #KR_WHILE ###############################################################################################
 def KR_WHILE():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "KR_WHILE")
 
-   return
+   return None, None, None
 
 #KR_FOR ###############################################################################################
 def KR_FOR():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "KR_FOR")
 
-   return
+   return None, None, None
 
 #KR_CONTINUE ###############################################################################################
 def KR_CONTINUE():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "KR_CONTINUE")
 
-   return
+   return None, None, None
 
 #KR_BREAK ###############################################################################################
 def KR_BREAK():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "KR_BREAK")
 
-   return
+   return None, None, None
 
 #KR_RETURN ###############################################################################################
 def KR_RETURN():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement.split(" ")[0] == "KR_RETURN")
 
-   return
+   return None, None, None
 
 ##########################################################################################################
 #NON ENDINGS #############################################################################################
@@ -570,23 +599,38 @@ def KR_RETURN():
 #~PRIMARNI IZRAZ ###########################################################################################
 def primarni_izraz_1():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("IDN")
 
-   return IDN()
+   line = genTreeInput[0].split(" ")[1]
+
+   t, lval, name = IDN()
+
+   #Validation---------------------
+   if t == None and lval == None:
+      throwErrorExact("<primarni_izraz> ::= IDN(" + line + "," + name + ")")
+   #-------------------------------
+   return t, lval, name
 
 def primarni_izraz_2():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("BROJ")
 
-   return BROJ()
+   line = genTreeInput[0].split(" ")[1]
+   t, lval, value = BROJ()
+   value = int(value)
+   
+   if value < -2**32 or value >= 2**32:
+      throwErrorExact("<primarni_izraz> ::= BROJ(" + line + "," + value + ")")
+
+   return t, lval, value
 
 def primarni_izraz_3():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("ZNAK")
 
@@ -594,7 +638,7 @@ def primarni_izraz_3():
 
 def primarni_izraz_4():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("NIZ_ZNAKOVA")
    
@@ -602,7 +646,7 @@ def primarni_izraz_4():
 
 def primarni_izraz_5():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("L_ZAGRADA <izraz> D_ZAGRADA")
 
@@ -614,7 +658,7 @@ def primarni_izraz_5():
 
 def primarni_izraz():
    if __ERROR__:
-      return
+      return None, None, None
 
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
@@ -637,7 +681,7 @@ def primarni_izraz():
 #~POSTFIKS IZRAZ ###########################################################################################
 def postfiks_izraz_1():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<primarni_izraz>")
 
@@ -645,7 +689,7 @@ def postfiks_izraz_1():
 
 def postfiks_izraz_2_1():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<postfiks_izraz> L_UGL_ZAGRADA <izraz> D_UGL_ZAGRADA")
    
@@ -659,11 +703,11 @@ def postfiks_izraz_2_1():
       
    D_UGL_ZAGRADA()
 
-   return
+   return None, None, None
 
 def postfiks_izraz_2_2(funcType):
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("  <postfiks_izraz> L_ZAGRADA D_ZAGRADA")
       print("  <postfiks_izraz> L_ZAGRADA <lista_argumenata> D_ZAGRADA")
@@ -692,11 +736,11 @@ def postfiks_izraz_2_2(funcType):
    else:
       throwError()
 
-   return
+   return None, None, None
    
 def postfiks_izraz_2():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("    <postfiks_izraz> L_UGL_ZAGRADA <izraz> D_UGL_ZAGRADA")
       print("    <postfiks_izraz> L_ZAGRADA D_ZAGRADA")
@@ -719,7 +763,7 @@ def postfiks_izraz_2():
    #Poziv funkcije
    elif "L_ZAGRADA" in genTreeInput[0]:
       #Validation --------------------------------
-      if not "|" in t:
+      if t and not "|" in t:
          throwError()
       #-------------------------------------------
       postfiks_izraz_2_2(t)
@@ -749,7 +793,7 @@ def postfiks_izraz_2():
 
 def postfiks_izraz():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
@@ -767,7 +811,7 @@ def postfiks_izraz():
 #~LISTA ARGUMENATA #########################################################################################
 def lista_argumenata_1():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<izraz_pridruzivanja>")
 
@@ -776,7 +820,7 @@ def lista_argumenata_1():
 
 def lista_argumenata_2():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<lista_argumenata> ZAREZ <izraz_pridruzivanja>")
 
@@ -788,7 +832,7 @@ def lista_argumenata_2():
 #Returns array of types
 def lista_argumenata():
    if __ERROR__:
-      return
+      return None, None, None
 
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
@@ -808,7 +852,7 @@ def lista_argumenata():
 #~UNARNI IZRAZ #############################################################################################
 def unarni_izraz_1():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<postfiks_izraz>")
 
@@ -816,7 +860,7 @@ def unarni_izraz_1():
 
 def unarni_izraz_2():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("OP_INC")
 
@@ -832,7 +876,7 @@ def unarni_izraz_2():
 
 def unarni_izraz_3():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("OP_DEC")
 
@@ -846,7 +890,7 @@ def unarni_izraz_3():
 
 def unarni_izraz_4():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<unarni_operator> <cast_izraz>")
 
@@ -861,7 +905,7 @@ def unarni_izraz_4():
 
 def unarni_izraz():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
@@ -887,7 +931,7 @@ def unarni_izraz():
 #~UNARNI OPERATOR
 def unarni_operator():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
@@ -904,12 +948,12 @@ def unarni_operator():
    else:
       throwError()
 
-   return
+   return None, None, None
 
 #~CAST IZRAZ ###############################################################################################
 def cast_izraz_1():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<unarni_izraz>")
 
@@ -917,7 +961,7 @@ def cast_izraz_1():
 
 def cast_izraz_2():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("L_ZAGRADA <ime_tipa> D_ZAGRADA <cast_izraz>")
 
@@ -937,7 +981,7 @@ def cast_izraz_2():
       
 def cast_izraz():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
@@ -955,7 +999,7 @@ def cast_izraz():
 #~IME TIPA #################################################################################################
 def ime_tipa_1():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<specifikator_tipa>")
 
@@ -963,7 +1007,7 @@ def ime_tipa_1():
 
 def ime_tipa_2():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("KR_CONST <specifikator_tipa>")
 
@@ -980,7 +1024,7 @@ def ime_tipa_2():
 
 def ime_tipa():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
@@ -1000,7 +1044,7 @@ def ime_tipa():
 #~SPECIFIKATOR TIPA ########################################################################################
 def specifikator_tipa_1():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("KR_VOID")
 
@@ -1010,7 +1054,7 @@ def specifikator_tipa_1():
 
 def specifikator_tipa_2():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("KR_CHAR")
 
@@ -1020,7 +1064,7 @@ def specifikator_tipa_2():
 
 def specifikator_tipa_3():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("KR_INT")
 
@@ -1030,7 +1074,7 @@ def specifikator_tipa_3():
 
 def specifikator_tipa():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
@@ -1053,7 +1097,7 @@ def specifikator_tipa():
 #~MULTIPLIKATIVNI IZRAZ ####################################################################################
 def multiplikativni_izraz_1():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<cast_izraz>")
 
@@ -1061,7 +1105,7 @@ def multiplikativni_izraz_1():
 
 def multiplikativni_izraz_2():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<multiplikativni_izraz> (OP_PUTA | OP_DIJELI | OP_MOD) <cast_izraz>")
    
@@ -1091,7 +1135,7 @@ def multiplikativni_izraz_2():
       
 def multiplikativni_izraz():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
@@ -1111,7 +1155,7 @@ def multiplikativni_izraz():
 #~ADITIVNI IZRAZ ###########################################################################################
 def aditivni_izraz_1():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<multiplikativni_izraz>")
 
@@ -1119,7 +1163,7 @@ def aditivni_izraz_1():
 
 def aditivni_izraz_2():
    if __ERROR__:
-      return 
+      return None, None, None 
    if __DEBUG__:
       print("<aditivni_izraz> (PLUS | MINUS) <multiplikativni_izraz>")
    
@@ -1139,17 +1183,17 @@ def aditivni_izraz_2():
    
 def aditivni_izraz():
    if __ERROR__:
-      return
+      return None, None, None
    
-   currentElement = genTreeInput[0]
+   currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement == "<aditivni_izraz>")
 
    if "<multiplikativni_izraz>" == genTreeInput[0]:
-      pass
+      return aditivni_izraz_1()
 
    elif "<aditivni_izraz>" == genTreeInput[0]:
-      pass
+      return aditivni_izraz_2()
 
    else:
       throwError()
@@ -1159,7 +1203,7 @@ def aditivni_izraz():
 #~ODNOSNI IZRAZ ############################################################################################
 def odnosni_izraz_1():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<aditivni_izraz>")
 
@@ -1167,7 +1211,7 @@ def odnosni_izraz_1():
 
 def odnosni_izraz_2():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<odnosni_izraz> (OP_LT | OP_GT | OP_LTE | OP_GTE) <aditivni_izraz>")
 
@@ -1187,7 +1231,7 @@ def odnosni_izraz_2():
    elif "OP_GT" in genTreeInput[0]:
       OP_GT()
    else:
-      throwError()
+      throwError("(Odnosni operator ne postoji)")
    
    addT, addLval, addName = aditivni_izraz()
 
@@ -1201,15 +1245,17 @@ def odnosni_izraz_2():
 
 def odnosni_izraz():
    if __ERROR__:
-      return
+      return None, None, None
+   
+   currentElement = genTreeInput.popleft()
    if __DEBUG__:
-      print("<odnosni_izraz>")
+      print(currentElement, currentElement == "<odnosni_izraz>")
 
    if "<aditivni_izraz>" == genTreeInput[0]:
-      pass
+      return odnosni_izraz_1()
 
    elif "<odnosni_izraz>" == genTreeInput[0]:
-      pass
+      return odnosni_izraz_2()
 
    else:
       throwError()
@@ -1219,15 +1265,15 @@ def odnosni_izraz():
 #~JEDNAKOSNI IZRAZ #########################################################################################
 def jednakosni_izraz_1():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<odnosni_izraz>")
    
-      return odnosni_izraz
+   return odnosni_izraz()
 
 def jednakosni_izraz_2():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<jednakosni_izraz> (OP_EQ | OP_NEQ) <odnosni_izraz>")
 
@@ -1254,7 +1300,7 @@ def jednakosni_izraz_2():
       
 def jednakosni_izraz():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
@@ -1274,7 +1320,7 @@ def jednakosni_izraz():
 #~BIN I IZRAZ ##############################################################################################
 def bin_i_izraz_1():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<jednakosni_izraz>")
 
@@ -1282,7 +1328,7 @@ def bin_i_izraz_1():
 
 def bin_i_izraz_2():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<bin_i_izraz> OP_BIN_I <jednakosni_izraz>")
 
@@ -1306,7 +1352,7 @@ def bin_i_izraz_2():
 
 def bin_i_izraz():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
@@ -1326,7 +1372,7 @@ def bin_i_izraz():
 #~BIN XILI IZRAZ ##############################################################################################
 def bin_xili_izraz_1():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<bin_i_izraz>")
 
@@ -1334,7 +1380,7 @@ def bin_xili_izraz_1():
 
 def bin_xili_izraz_2():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<bin_xili_izraz> OP_BIN_XILI <bin_i_izraz>")
 
@@ -1358,7 +1404,7 @@ def bin_xili_izraz_2():
 
 def bin_xili_izraz():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
@@ -1378,7 +1424,7 @@ def bin_xili_izraz():
 #~BIN ILI IZRAZ ############################################################################################
 def bin_ili_izraz_1():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<bin_xili_izraz>")
 
@@ -1386,7 +1432,7 @@ def bin_ili_izraz_1():
 
 def bin_ili_izraz_2():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<bin_ili_izraz> OP_BIN_ILI <bin_xili_izraz>")
 
@@ -1410,11 +1456,11 @@ def bin_ili_izraz_2():
 
 def bin_ili_izraz():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
-      print(currentElement, currentElement = "<bin_ili_izraz>")
+      print(currentElement, currentElement == "<bin_ili_izraz>")
 
    if "<bin_xili_izraz>" in genTreeInput[0]:
       return bin_ili_izraz_1()
@@ -1430,7 +1476,7 @@ def bin_ili_izraz():
 #~LOG I IZRAZ ##############################################################################################
 def log_i_izraz_1():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<bin_ili_izraz>")
 
@@ -1438,7 +1484,7 @@ def log_i_izraz_1():
 
 def log_i_izraz_2():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<log_i_izraz> OP_LOG_I <bin_ili_izraz>")
 
@@ -1462,11 +1508,11 @@ def log_i_izraz_2():
 
 def log_i_izraz():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
-      print(currentElement, currentElement = "<log_i_izraz>")
+      print(currentElement, currentElement == "<log_i_izraz>")
 
    if "<bin_ili_izraz>" in genTreeInput[0]:
       return log_i_izraz_1()
@@ -1482,7 +1528,7 @@ def log_i_izraz():
 #~LOG ILI IZRAZ ############################################################################################
 def log_ili_izraz_1():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<log_i_izraz>")
 
@@ -1490,7 +1536,7 @@ def log_ili_izraz_1():
 
 def log_ili_izraz_2():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<log_ili_izraz> OP_LOG_ILI <log_i_izraz>")
 
@@ -1514,11 +1560,11 @@ def log_ili_izraz_2():
 
 def log_ili_izraz():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
-      print(currentElement, currentElement = "<log_ili_izraz>")
+      print(currentElement, currentElement == "<log_ili_izraz>")
 
    if "<log_i_izraz>" in genTreeInput[0]:
       return log_ili_izraz_1()
@@ -1534,7 +1580,7 @@ def log_ili_izraz():
 #~IZRAZ PRIDRUZIVANJA ######################################################################################
 def izraz_pridruzivanja_1():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<log_ili_izraz>")
 
@@ -1542,7 +1588,7 @@ def izraz_pridruzivanja_1():
 
 def izraz_pridruzivanja_2():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<postfiks_izraz> OP_PRIDRUZI <izraz_pridruzivanja>")
 
@@ -1566,11 +1612,11 @@ def izraz_pridruzivanja_2():
 
 def izraz_pridruzivanja():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
-      print(currentElement, currentElement = "<izraz_pridruzivanja>")
+      print(currentElement, currentElement == "<izraz_pridruzivanja>")
 
    if "<log_ili_izraz>" == genTreeInput[0]:
       return izraz_pridruzivanja_1()
@@ -1586,7 +1632,7 @@ def izraz_pridruzivanja():
 #~IZRAZ ####################################################################################################
 def izraz_1():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<izraz_pridruzivanja>")
 
@@ -1594,7 +1640,7 @@ def izraz_1():
 
 def izraz_2():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<izraz> ZAREZ <izraz_pridruzivanja>")
 
@@ -1604,7 +1650,7 @@ def izraz_2():
 
 def izraz():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
@@ -1628,19 +1674,19 @@ def izraz():
 #~SLOZENA NAREDBA ##########################################################################################
 def slozena_naredba_1():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print(" L_VIT_ZAGRADA <lista_naredbi> D_VIT_ZAGRADA")
 
-      lista_naredbi()
+   lista_naredbi()
 
-      D_VIT_ZAGRADA()
+   D_VIT_ZAGRADA()
 
-      return
+   return None, None, None
 
 def slozena_naredba_2():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("L_VIT_ZAGRADA <lista_deklaracija> <lista_naredbi> D_VIT_ZAGRADA")
 
@@ -1650,13 +1696,15 @@ def slozena_naredba_2():
 
    D_VIT_ZAGRADA()
 
-   return
+   return None, None, None
 
 def slozena_naredba():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
+   if __DEBUG__:
+      print(currentElement, currentElement == "<slozena_naredba>")
 
    L_VIT_ZAGRADA()
 
@@ -1666,22 +1714,22 @@ def slozena_naredba():
    elif "<lista_deklaracija>" == genTreeInput[0]:
       slozena_naredba_2()
 
-   return
+   return None, None, None
 
 #~LISTA NAREDBI ############################################################################################
 def lista_naredbi_1():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<naredba>")
 
    naredba()
 
-   return
+   return None, None, None
 
 def lista_naredbi_2():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<lista_naredbi> <naredba>")
 
@@ -1689,11 +1737,11 @@ def lista_naredbi_2():
 
    naredba()
 
-   return
+   return None, None, None
 
 def lista_naredbi():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
@@ -1708,12 +1756,12 @@ def lista_naredbi():
    else:
       throwError()
    
-   return
+   return None, None, None
    
 #~NAREDBA #################################################################################################
 def naredba():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
@@ -1737,12 +1785,12 @@ def naredba():
    else:
       throwError()
    
-   return
+   return None, None, None
 
 #~IZRAZ NAREDBA ############################################################################################
 def izraz_naredba_1():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<izraz> TOCKAZAREZ")
 
@@ -1754,7 +1802,7 @@ def izraz_naredba_1():
 
 def izraz_naredba():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
@@ -1772,7 +1820,7 @@ def izraz_naredba():
 #~NAREDBA GRANANJA #########################################################################################
 def naredba_grananja():
    if __ERROR__:
-      return
+      return None, None, None
 
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
@@ -1793,7 +1841,7 @@ def naredba_grananja():
    naredba()
 
    if "KR_ELSE" != genTreeInput[0]:
-      return
+      return None, None, None
 
    KR_ELSE()
 
@@ -1802,7 +1850,7 @@ def naredba_grananja():
 #~NAREDBA PETLJE ###########################################################################################
 def naredba_petlje_1():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("KR_WHILE L_ZAGRADA <izraz> D_ZAGRADA <naredba>")
    
@@ -1820,11 +1868,11 @@ def naredba_petlje_1():
 
    naredba()
 
-   return
+   return None, None, None
 
 def naredba_petlje_2():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("KR_FOR L_ZAGRADA <izraz_naredba> <izraz_naredba> D_ZAGRADA <naredba>")
       print(" KR_FOR L_ZAGRADA <izraz_naredba> <izraz_naredba> <izraz> D_ZAGRADA <naredba>")
@@ -1844,15 +1892,15 @@ def naredba_petlje_2():
    D_ZAGRADA()
 
    if "<naredba>" != genTreeInput[0]:
-      return
+      return None, None, None
 
    naredba()
-   return
+   return None, None, None
 
 
 def naredba_petlje():
    if __ERROR__:
-      return
+      return None, None, None
 
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
@@ -1864,37 +1912,39 @@ def naredba_petlje():
    elif "KR_FOR" == genTreeInput[0]:
       naredba_petlje_2()
 
-   return
+   return None, None, None
 
 #~NAREDBA SKOKA ############################################################################################
 def naredba_skoka():
    if __ERROR__:
-      return
+      return None, None, None
    
+   global currentScope
+
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement == "<naredba_skoka>")
 
-   if "KR_CONTINUE" == genTreeInput[0]:
+   if "KR_CONTINUE" in genTreeInput[0]:
       KR_CONTINUE()
       TOCKAZAREZ()
-      return
+      return None, None, None
 
-   elif "KR_BREAK" == genTreeInput[0]:
+   elif "KR_BREAK" in genTreeInput[0]:
       KR_BREAK()
       TOCKAZAREZ()
-      return
+      return None, None, None
    
-   elif "KR_RETURN" == genTreeInput[0]:
+   elif "KR_RETURN" in genTreeInput[0]:
       KR_RETURN()
 
    else:
-      throwError()
+      throwError("(Nepoznata keyword skoka)")
 
    #Validation ------------------------
    if currentScope[FUNC] == None:
       throwError()
-      return
+      return None, None, None
    #-----------------------------------
 
    if "TOCKAZAREZ" in genTreeInput[0]:
@@ -1912,31 +1962,31 @@ def naredba_skoka():
       #------------------------------
       TOCKAZAREZ()
    
-   return
+   return None, None, None
 
 #~PRIJEVODNA JEDINICA ######################################################################################
 def prijevodna_jedinica_1():
    if __ERROR__:
-      return   
+      return None, None, None   
    if __DEBUG__:
       print("<vanjska_deklaracija>")
 
    vanjska_deklaracija()
-   return
+   return None, None, None
 
 def prijevodna_jedinica_2():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<prijevodna_jedinica> <vanjska_deklaracija>")
 
    prijevodna_jedinica()
    vanjska_deklaracija()
-   return
+   return None, None, None
 
 def prijevodna_jedinica():
    if __ERROR__:
-      return
+      return None, None, None
 
    currentElement = genTreeInput.popleft()   
    if __DEBUG__:
@@ -1950,13 +2000,13 @@ def prijevodna_jedinica():
    else:
       throwError()
       
-   return
+   return None, None, None
 
       
 #~VANJSKA DEKLARACIJA ######################################################################################
 def vanjska_deklaracija():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
@@ -1971,7 +2021,7 @@ def vanjska_deklaracija():
    else:
       throwError()
 
-   return
+   return None, None, None
 
 ###########################################################################################################
 #DEKLARACIJE I DEFINICIJE #################################################################################
@@ -1980,17 +2030,19 @@ def vanjska_deklaracija():
 #~DEFINICIJA FUNKCIJE #####################################################################################
 def definicija_funkcije():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement == "<definicija_funkcije>")
 
+   global currentScope
+
    t = ime_tipa()
 
    #Validation -------------------------------------
    if CONST in t:
-      throwError()
+      throwError("(Funkcija nije CONST)")
    #------------------------------------------------
 
    funcType, funcLval, funcName = IDN()
@@ -1999,7 +2051,7 @@ def definicija_funkcije():
    tmpScope = currentScope
    while tmpScope != None:
       if funcName in tmpScope[SCOPE] and tmpScope[SCOPE][funcName][0] == FUNC:
-         throwError()
+         throwError("(Funkcija vec postoji)")
          break
       tmpScope = tmpScope[PARENT]
    #------------------------------------------------
@@ -2009,10 +2061,13 @@ def definicija_funkcije():
    params = None
 
    if "KR_VOID" in genTreeInput[0]:
+      KR_VOID()
       funcType = t + "|" + VOID
+
    elif "<lista_parametara>" == genTreeInput[0]:
       params = lista_parametara()
       funcType = t + "|" + ",".join(params[0])
+   
    else:
       throwError()
 
@@ -2025,7 +2080,9 @@ def definicija_funkcije():
    #------------------------------------------------
 
    currentScope[SCOPE][funcName][TYPE] = funcType
-   del globalScopeNode[DECL][funcName]
+
+   if funcName in globalScopeNode[DECL]:
+      del globalScopeNode[DECL][funcName]
 
    D_ZAGRADA()
 
@@ -2049,12 +2106,12 @@ def definicija_funkcije():
 
    currentScope = newNode[PARENT]
 
-   return
+   return None, None, None
 
 #~LISTA PARAMETARA #####################################################################################
 def lista_parametara_1():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<deklaracija_parametra>")
 
@@ -2064,7 +2121,7 @@ def lista_parametara_1():
 
 def lista_parametara_2():
    if __ERROR__:
-      return
+      return None, None, None
    if __DEBUG__:
       print("<lista_parametara> ZAREZ <deklaracija_parametra>")
 
@@ -2086,7 +2143,7 @@ def lista_parametara_2():
 
 def lista_parametara():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
@@ -2106,7 +2163,7 @@ def lista_parametara():
 #~DEKLARACIJA PARAMETRA ###################################################################################
 def deklaracija_parametra():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
@@ -2135,7 +2192,7 @@ def deklaracija_parametra():
 #~LISTA DEKLARACIJA #######################################################################################
 def lista_deklaracija():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
@@ -2151,7 +2208,7 @@ def lista_deklaracija():
 #~DEKLARACIJA #############################################################################################
 def deklaracija():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
@@ -2163,12 +2220,12 @@ def deklaracija():
 
    TOCKAZAREZ()
 
-   return
+   return None, None, None
 
 #~LISTA INIT DEKLARATORA ##################################################################################
 def lista_init_deklaratora(t):
    if __ERROR__:
-      return
+      return None, None, None
 
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
@@ -2185,12 +2242,12 @@ def lista_init_deklaratora(t):
    else:
       throwError()
 
-   return
+   return None, None, None
       
 #~INIT DEKLARATOR #########################################################################################
 def init_deklarator(t1):
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
@@ -2203,7 +2260,7 @@ def init_deklarator(t1):
       if CONST in t2:
          throwError()
       #------------------------------------
-      return
+      return None, None, None
    
    OP_PRIDRUZI()
 
@@ -2218,16 +2275,18 @@ def init_deklarator(t1):
             throwError()
    #------------------------------------------------
    
-   return
+   return None, None, None
 
 #~IZRAVNI DEKLARATOR ######################################################################################
 def izravni_deklarator(t):
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
       print(currentElement, currentElement == "<izravni_deklarator>")
+
+   global currentScope
 
    _, _, name = IDN()
 
@@ -2289,7 +2348,7 @@ def izravni_deklarator(t):
 #~INICIJALIZATOR ##########################################################################################
 def inicijalizator(t):
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
@@ -2312,12 +2371,12 @@ def inicijalizator(t):
    else:
       throwError()
 
-   return
+   return None, None, None
 
 #~LISTA IZRAZA PRIDRUZIVANJA ##############################################################################
 def lista_izraza_pridruzivanja():
    if __ERROR__:
-      return
+      return None, None, None
    
    currentElement = genTreeInput.popleft()
    if __DEBUG__:
@@ -2336,46 +2395,25 @@ def lista_izraza_pridruzivanja():
    else:
       throwError()
 
-   return
+   return None, None, None
 ###########################################################################################################
-#GLOBALS ##################################################################################################
+#MAIN ##################################################################################################
 ###########################################################################################################
 
-genTreeInput = deque()
-
-#Current scope
-#scopeNode[PARENT] = scopeNodeParent if not global else None
-#scopeNode[DECL] = dict of declarations
-globalScopeNode = {
-   PARENT : None,
-   KIDS: [],
-   FUNC : None,
-   DECL : dict(),
-   SCOPE : dd(lambda : dd(None))
-}
-currentScope = globalScopeNode
-
-
-castDict = {
-   INT : {INT, INT + " " + CONST, CHAR, CHAR + " " + CONST},
-   INT + " " + CONST : {INT, INT + " " + CONST, CHAR, CHAR + " " + CONST},
-
-   CHAR : {INT, INT + " " + CONST, CHAR, CHAR + " " + CONST},
-   CHAR + " " + CONST : {INT, INT + " " + CONST, CHAR, CHAR + " " + CONST}
-}
-
-#MAIN ####################################################################################################
 def main():
    for line in fileinput.input():
       line = line.rstrip("\n")
       line  = line.lstrip(" ")
       genTreeInput.append(line)
-      
+   
+   global globalScopeNode
+
    prijevodna_jedinica()
 
    if not __ERROR__:
       if not "main" in globalScopeNode[SCOPE]:
          print("main")
+         print(globalScopeNode)
       
       toVisit = [globalScopeNode]
 
@@ -2386,6 +2424,9 @@ def main():
             break
          toVisit.extend(current[KIDS])
 
+   if __ERROR_INFO__:
+      print(__ERROR_INFO__)
+   
    if not genTreeInput:
       return True
    else:
