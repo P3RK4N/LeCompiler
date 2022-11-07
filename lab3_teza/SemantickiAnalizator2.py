@@ -250,17 +250,19 @@ def naredba():
 
 #PRIJEVODNA JEDINICA#
 def prijevodna_jedinica():
+   genTreeInput.popleft()
 
-   if "<vanjska_deklaracija>" == genTreeInput[0]:
-      
-      if  "<definicija_funkcije>" == genTreeInput[0]:
-         pass
+   if "<prijevodna_jedinica>" == genTreeInput[0]:
+      prijevodna_jedinica()
 
-      elif "<deklaracija>" == genTreeInput[0]:
-         pass
+   #Vanjska Deklaracija
+   genTreeInput.popleft()
 
-   elif "<prijevodna_jedinica>" == genTreeInput[0]:
-      pass
+   if  "<definicija_funkcije>" == genTreeInput[0]:
+      definicija_funkcije()
+
+   elif "<deklaracija>" == genTreeInput[0]:
+      deklaracija()
 
 
 ########################################################################################
