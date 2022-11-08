@@ -1,15 +1,17 @@
 import fileinput
 from collections import deque, defaultdict as dd
+import Util
 
 #DEBUGGING & GLOBALS #######################################################################################
 __DEBUG__ = False
 
 PARENT = "PARENT" #Parent Node
 KIDS = "KIDS"     #Kid Nodes
-SCOPE = "SCOPE"   #Scope identities
+SCOPE = "SCOPE"   #Declared vars or functions
 TYPE = "TYPE"     #Type of scope identity
 NAME = "NAME"     #Name of scope identity (Redundant)
-FUNC = "FUNC"     #Current function
+CURRENT_FUNC = "CURRENT_FUNC"     #Current function
+FUNCS = "FUNCS"   #Functions defined in this scope
 DECL = "DECL"     #Declared, but undefined identities in this scope
 LVAL = "LVAL"     #Is identity an lvalue?
 
@@ -41,8 +43,9 @@ castDict = {
 }
 
 genTreeInput = deque()
-inFunction = False
-inLoop = False
+
+funcStack = []
+loopStack = []
 
 #Current scope
 #scopeNode[PARENT] = scopeNodeParent if not global else None
@@ -50,7 +53,7 @@ inLoop = False
 globalScopeNode = {
    PARENT : None,
    KIDS: [],
-   FUNC : None,
+   FUNCS : dict(),
    DECL : dict(),
    SCOPE : dd(lambda : dd(None))
 }
@@ -58,6 +61,7 @@ globalScopeNode = {
 currentScope = globalScopeNode
 
 def throwError(e = ""):
+   # print("ERROR",e)
    print(e)
    exit(0)
 
@@ -65,103 +69,268 @@ def throwError(e = ""):
 #IZRAZI ################################################################################
 ########################################################################################
 
-#PRIMARNI IZRAZ#
-def primarni_izraz():
-   
+#PRIMARNI IZRAZ# FINISHED
+def primarni_izraz(): #Returns type, lval
+   #LHS production
+   production = genTreeInput.popleft() + " ::="
+
    if "IDN" in genTreeInput[0]:
-      pass
+      kros, line, val = genTreeInput.popleft().split(" ")
+      production += Util.stringify1(kros,line,val)
+
+      t, lval = Util.getDeclaredType(currentScope, val)
+
+      if t == None:
+         throwError(production)
+
+      return t, lval
 
    elif "BROJ" in genTreeInput[0]:
-      pass
+      kros, line, val = genTreeInput.popleft().split(" ")
+      production += Util.stringify1(kros,line,val)
+      val = int(val)
 
-   elif "ZNAK" in genTreeInput[0]:
-      pass
+      if val < -2**32 or val >= 2**32:
+         throwError(production)
+      
+      return INT, False
 
    elif "NIZ_ZNAKOVA" in genTreeInput[0]:
-      pass
+      kros, line, val = genTreeInput.popleft().split(" ")
+      production += Util.stringify1(kros, line, val)
 
+      if val[0] != "\"" or val[-1] != "\"":
+         throwError(production)
+      else:   
+         for pos in range(1,len(val)-1):
+            if val[pos] == "\\" and (pos == len(val)-2 or not val[pos+1] in {'\\', "t", "n", "\"", "\'", "0"}):
+               throwError(production)
+
+      return CONST_CHAR_ARRAY, False
+
+   elif "ZNAK" in genTreeInput[0]:
+      kros, line, val = genTreeInput.popleft().split(" ")
+      production += Util.stringify1(kros,line,val)
+
+      if len(val) == 2:
+         if val[0] != "\\" or not val[1] in {'\\', "t", "n", "\"", "\'", "0"}:
+            throwError(production)
+      else:
+         if val[0] in {'\\', '\''}:
+            throwError(production)
+
+      return CHAR, False
+   
    elif "L_ZAGRADA" in genTreeInput[0]:
-      pass
+      production += Util.stringify(genTreeInput.popleft())
+      production += " <izraz>"
+      t, lval = izraz()
+      production += Util.stringify(genTreeInput.popleft())
+      return t, lval
 
-#POSTFIKS IZRAZ#
-def postfiks_izraz():
+#POSTFIKS IZRAZ# FINISHED - CRITICAL
+def postfiks_izraz(): #Returns type, lval
+   #LHS production
+   production = genTreeInput.popleft() + " ::="
    
    if "<primarni_izraz>" == genTreeInput[0]:
-      pass
+      return primarni_izraz()
    
+   #Postfix izraz - dodaj u produkciju
    elif "<postfiks_izraz>" == genTreeInput[0]:
-      
+      production += " <postfiks_izraz>"
+      postType, postLval = postfiks_izraz()
+
+      #ARRAY ELEMENT
+      #L UGL ZAGRADA - dodaj u produkciju, provjeri jel niz i jel tip izraza int
       if "L_UGL_ZAGRADA" in genTreeInput[0]:
-         pass
+         production += Util.stringify(genTreeInput.popleft())
 
+         #IZRAZ - dodaj u produkciju
+         production += " <izraz>"
+
+         if not ARRAY in postType:
+            production += Util.findOtherBracket(genTreeInput, "L_UGL_ZAGRADA", "D_UGL_ZAGRADA")
+            throwError(production)
+
+         izrazType, izrazLval = izraz()
+
+         #D_UGL_ZAGRADA - dodaj u produkciju
+         production += genTreeInput.popleft()
+
+         if not izrazType in castDict[INT]:
+            throwError(production)
+         
+         return postType.replace(" ARRAY", ""), not CONST in postType
+
+      #INCREMENTIRANJE
       elif "OP_INC" in genTreeInput[0] or "OP_DEC" in genTreeInput[0]:
-         pass
+         production += Util.stringify(genTreeInput.popleft())
+
+         if not postType in castDict[INT] or postLval == False:
+            throwError(production) 
+         
+         return INT, False
       
+      #FUNCTION CALL
       elif "L_ZAGRADA" in genTreeInput[0]:
+         production += Util.stringify(genTreeInput.popleft())
+         argsType = ""
 
+         #Lista argumenata - dodaj u produkciju, provjeri jel su tipovi isti
          if "<lista_argumenata>" in genTreeInput[0]:
-            pass
+            production += " <lista_argumenata>"
+            argsType = ",".join(lista_argumenata())
 
-#LISTA ARGUMENATA#
-def lista_argumenata():
+         #D ZAGRADA - dodaj u produkciju
+         production += Util.stringify(genTreeInput.popleft())
+
+         #Parametri ne pripadaju ovoj funkciji
+         if "|" not in postType or postType.split("|")[1] != argsType:
+            throwError(production)
+
+         return postType.split("|")[0], False
+
+#LISTA ARGUMENATA# FINISHED
+def lista_argumenata(): #Returns list(types)
+   genTreeInput.popleft()
 
    if "<izraz_pridruzivanja>" == genTreeInput[0]:
-      pass
+      return [izraz_pridruzivanja()[0]]
 
    elif "<lista_argumenata>" == genTreeInput[0]:
-      pass
+      types = lista_argumenata()
+      #ZAREZ
+      genTreeInput.popleft()
+      return types + [izraz_pridruzivanja()[0]]
 
-#UNARNI IZRAZ#
+#UNARNI IZRAZ# FINISHED
+#UNARNI OPERATOR# FINISHED
 def unarni_izraz():
+   #LHS production
+   production = genTreeInput.popleft() + " ::="
 
    if "<postfiks_izraz>" == genTreeInput[0]:
-      pass
+      return postfiks_izraz()
 
+   #Dodaj u produkciju i provjeri jel tip INT
    elif "OP_INC" in genTreeInput[0] or "OP_DEC" in genTreeInput[0]:
-      pass
+      #Operator
+      production += Util.stringify(genTreeInput.popleft())
+
+      #Unarni izraz
+      production += " <unarni_izraz>"
+      unarniType, unarniLval = unarni_izraz()
+
+      if unarniLval == False or not unarniType in castDict[INT]:
+         throwError(production)
+
+      return INT, False
 
    elif "<unarni_operator>" == genTreeInput[0]:
-      pass
+      production += " <unarni_operator> <cast_izraz>"
+      genTreeInput.popleft()
+      genTreeInput.popleft()
+      castType, castLval = cast_izraz()
 
-#UNARNI OPERATOR#
-#Not needed
-   
-#CAST IZRAZ#
-def cast_izraz():
+      if not castType in castDict[INT]:
+         throwError(production)
+
+      return INT, False
+
+#CAST IZRAZ# FINISHED
+def cast_izraz(): #Returns type, lval
+   #LHS production
+   production = genTreeInput.popleft() + " ::="
 
    if "<unarni_izraz>" == genTreeInput[0]:
-      pass
+      return unarni_izraz()
 
+   #Dodaj u produkciju, provjeri da se ovo moze eksplicitno castat
    elif "L_ZAGRADA" in genTreeInput[0]:
-      pass
+      #L ZAGRADA - dodaj u produkciju
+      production += Util.stringify(genTreeInput.popleft())
 
-#IME TIPA#
+      #IME TIPA - dodaj u produkciju
+      production += " <ime_tipa>"
+      imeType = ime_tipa()
+
+      #D ZAGRADA - dodaj u produkciju
+      production += Util.stringify(genTreeInput.popleft())
+
+      #Cast izraz - dodaj u produkciju, provjeri jel moze convertat
+      production += " <cast_izraz>"
+      castType, castLval = cast_izraz()
+
+      if not castType in castDict[imeType]:
+         throwError(production)
+
+      return imeType, False
+
+#IME TIPA# - FINISHED
+#SPECIFIKATOR TIPA# - FINISHED
 def ime_tipa():
+   #Dodaj lhs na produkciju
+   production = genTreeInput.popleft() + " ::="
 
-   if "<specifikator_tipa>" == genTreeInput[0]:
-      pass
-
-   elif "KR_CONST" in genTreeInput[0]:
-      pass
-
-#SPECIFIKATOR TIPA#
-#Not Needed
+   isConst = False
+   #KR CONST - dodaj na produkciju
+   if "KR_CONST" in genTreeInput[0]:
+      production += Util.stringify(genTreeInput.popleft())
+      isConst = True
    
-#IZRAZI#
-def operacijski_izrazi(top, bottom):
+   #Specifikator tipa - dodaj na produkciju
+   production += " " + genTreeInput.popleft()
 
-   if callable(bottom):
-      pass
+   #Tip
+   tip = genTreeInput.popleft().split(" ")[0][3:]
 
-   elif bottom == genTreeInput[0]:
-      pass
+   if tip == VOID and isConst:
+      throwError(production)
 
+   return int(isConst)*"CONST " + tip
+
+#IZRAZI# FINISHED
+def operacijski_izrazi(top): #Returns type, lval
+   #LHS production
+   production = genTreeInput.popleft() + " ::="
+
+   #Podizraz
+   if izrazi[top] == genTreeInput[0]:
+      if izrazi[top] != "<cast_izraz>":
+         return operacijski_izrazi(izrazi[top])
+      else:
+         return cast_izraz()
+      
+   #Isti izraz - dodaj u produkciju
    elif top == genTreeInput[0]:
-      pass
+      topType, topLval = operacijski_izrazi(top)
+      production += " " + top
 
+      #Operator - dodaj u produkciju
+      production += Util.stringify(genTreeInput.popleft())
+
+      #Podizraz - dodaj u produkciju
+      production += " " + izrazi[top]
+
+      if not topType in castDict[INT]:
+         throwError(production)
+
+      bottomType, bottomLval = None, None
+
+      if izrazi[top] != "<cast_izraz>":
+         bottomType, bottomLval = operacijski_izrazi(izrazi[top])
+      else:
+         bottomType, bottomLval = cast_izraz()
+
+      if not bottomType in castDict[INT]:
+         throwError(production)
+
+      return INT, False
+      
 
 izrazi = {
-   "<multiplikativni_izraz>" : cast_izraz,
+   "<multiplikativni_izraz>" : "<cast_izraz>",
    "<aditivni_izraz>" : "<multiplikativni_izraz>",
    "<odnosni_izraz>" : "<aditivni_izraz>",
    "<jednakosni_izraz>" : "<odnosni_izraz>",
@@ -172,51 +341,83 @@ izrazi = {
    "<log_ili_izraz>" : "<log_i_izraz>"
 }
 
-#IZRAZ PRIDRUZIVANJA#
-def izraz_pridruzivanja():
+#IZRAZ PRIDRUZIVANJA# FINISHED
+def izraz_pridruzivanja(): #Returns type, lval
+   #LHS production
+   production = genTreeInput.popleft() + " ::="
 
+   #LOG ILI IZRAZ
    if "<log_ili_izraz>" == genTreeInput[0]:
-      pass
-
+      return operacijski_izrazi("<log_ili_izraz>")
+   
+   #POSTFIKS IZRAZ - dodaj na produkciju
    elif "<postfiks_izraz>" == genTreeInput[0]:
-      pass
+      production += " <postfiks_izraz>"
+      postfiksType, postfiksLval = postfiks_izraz()
 
-#IZRAZ#
-def izraz():
+      #OP PRIDRUZI - dodaj na produkciju
+      production += Util.stringify(genTreeInput.popleft())
 
-   if "<izraz_pridruzivanja>" == genTreeInput[0]:
-      pass
+      #Izraz pridruzivanja - dodaj na produkciju, ako je sve ispravno nastavi, inace baci gresku
+      production += " <izraz_pridruzivanja>"
 
-   elif "<izraz>" == genTreeInput[0]:
-      pass
+      if postfiksLval == False:
+         throwError(production)
 
+      pridType, pridLval = izraz_pridruzivanja()
+
+      if not postfiksType in castDict[pridType]:
+         throwError(production)
+
+      return postfiksType, False
+   
+#IZRAZ# FINISHED
+def izraz(): #Returns type, lval
+   genTreeInput.popleft()
+
+   #Izraz
+   if "<izraz>" == genTreeInput[0]:
+      izraz()
+      #Zarez
+      genTreeInput.popleft()
+
+   #Izraz pridruzivanja
+   return izraz_pridruzivanja()[0], False
 
 
 ########################################################################################
 #NAREDBENA STRUKTURA ###################################################################
 ########################################################################################
 
-#SLOZENA NAREDBA#
+#SLOZENA NAREDBA# - FINISHED
 def slozena_naredba():
-   
-   if "<lista_naredbi>" == genTreeInput[0]:
-      pass
+   #LHS
+   genTreeInput.popleft()
 
-   elif "<lista_deklaracija>" == genTreeInput[0]:
-      pass
+   #L_VIT_ZAGRADA
+   genTreeInput.popleft()
 
-#LISTA NAREDBI#
+   if "<lista_deklaracija>" == genTreeInput[0]:
+      lista_deklaracija()
+
+   lista_naredbi()
+
+   #D_VIT_ZAGRADA
+   genTreeInput.popleft()
+
+#LISTA NAREDBI# - FINISHED
 def lista_naredbi():
+   genTreeInput.popleft()
 
-   if "<naredba>" == genTreeInput[0]:
-      pass
+   if "<lista_naredbi>" == genTreeInput[0]:
+      lista_naredbi()
 
-   elif "<lista_naredbi>" == genTreeInput[0]:
-      pass
+   naredba()
 
 #NAREDBA#
 def naredba():
-
+   genTreeInput.popleft()
+   
    if "<izraz_naredba>" == genTreeInput[0]:
       
       if "TOCKAZAREZ" in genTreeInput[0]:
@@ -240,15 +441,32 @@ def naredba():
          if "<izraz>" == genTreeInput[0]:
             pass
 
+   #Naredba skoka
    elif "<naredba_skoka>" == genTreeInput[0]:
+      production = genTreeInput.popleft() + " ::="
 
       if "KR_CONTINUE" in genTreeInput[0] or "KR_BREAK" in genTreeInput[0]:
-         pass
+         pass #TODO: rjesi naredbu petlje
 
+      #KR RETURN
       elif "KR_RETURN" in genTreeInput[0]:
-         pass
+         production += Util.stringify(genTreeInput.popleft())
+         returnType = VOID
 
-#PRIJEVODNA JEDINICA#
+         #Izraz - dodaj na produkciju, stavi u returnType
+         if "<izraz>" == genTreeInput[0]:
+            production += " <izraz>"
+            returnType = izraz()[0]
+
+         #Tockazarez - dodaj na produkciju
+         production += Util.stringify(genTreeInput.popleft())
+
+         #Throw error ako nije isti povratni tip
+         if not funcStack or Util.getFuncType(funcStack[-1], currentScope[PARENT]).split("|")[0] != returnType:
+            throwError(production)
+
+#PRIJEVODNA JEDINICA# - FINISHED
+#VANJSKA DEKLARACIJA# - FINISHED
 def prijevodna_jedinica():
    genTreeInput.popleft()
 
@@ -264,19 +482,86 @@ def prijevodna_jedinica():
    elif "<deklaracija>" == genTreeInput[0]:
       deklaracija()
 
-
+      
 ########################################################################################
 #DEKLARACIJE I DEFINICIJE ##############################################################
 ########################################################################################
 
 #DEFINICIJA FUNKCIJE#
 def definicija_funkcije():
+   global currentScope
+   #Dodaj LHS na produkciju
+   current = genTreeInput.popleft()
+   production = current + " ::= " + "<ime_tipa>"
+   error = False
 
+   #Ime tipa - dohvati returnType i provjeri jel const
+   returnType = ime_tipa()
+   funcType = None
+   error |= CONST in returnType
+
+   #IDN - provjeri jel postoji definirana func s tim imenom, dodaj na produkciju
+   idn, typeLine, funcName = genTreeInput.popleft().split(" ")
+   production += Util.stringify1(idn, typeLine, funcName)
+   error |= Util.functionExists(funcName, globalScopeNode)
+
+   #L ZAGRADA - dodaj na produkciju
+   production += Util.stringify(genTreeInput.popleft())
+
+   types_names_params = None
+   #KR VOID - dodaj na produkciju, dohvati paramType, ako deklarirana, mora bit isti tip, dodaj u scope
    if "KR_VOID" in genTreeInput[0]:
-      pass
-
+      production += Util.stringify(genTreeInput.popleft())
+      funcType = returnType + "|"
+      if funcName in globalScopeNode[DECL]:
+         error |= globalScopeNode[DECL][funcName] != funcType
+         del globalScopeNode[DECL][funcName]
+      currentScope[FUNCS][funcName] = funcType
+   
+   #LISTA PARAMETARA - isto kao i KR VOID
    elif "<lista_parametara>" == genTreeInput[0]:
-      pass
+      production += " <lista_parametara>"
+      if not error:
+         types_names_params = lista_parametara() #TODO: stvori func type, provjeri deklaraciju, dodaj u scope
+         pass
+
+   #D ZAGRADA - dodaj na produkciju
+   production += Util.stringify(genTreeInput.popleft())
+
+   #Slozena naredba - dodaj na produkciju, napravi novi scope i udi, dodaj function stack, dodaj parametre u scope, udji u slozenu funkciju, skini function stack, izadi iz scopea
+   production += " <slozena_naredba>"
+   if not error:
+      #Ulaz u function scope
+      newNode = {
+         PARENT : currentScope,
+         KIDS: [],
+         FUNCS : dict(),
+         DECL : dict(),
+         SCOPE : dd(lambda : dd(None))
+      }
+      currentScope[KIDS].append(newNode)
+      currentScope = newNode
+
+      if types_names_params:
+         #TODO: Dodaj imena i tipove u novi scope
+         pass
+
+      #Stavljanje funkcije na stack
+      global funcStack
+      funcStack.append(funcName)
+
+      #Slozena naredba
+      slozena_naredba()
+
+      #Skidanje sa stacka
+      funcStack.pop()
+
+      #Izlaz iz function scopea
+      currentScope = currentScope[PARENT]
+
+   #KRAJ
+   if error:
+      throwError(production)
 
 #LISTA PARAMETARA#
 def lista_parametara():
@@ -359,7 +644,17 @@ def lista_izraza_pridruzivanja():
 #MAIN ##################################################################################
 ########################################################################################
 def main():
-   pass
+   global genTreeInput
+   for line in fileinput.input():
+      genTreeInput.append(line.rstrip("\n").strip(" "))
+
+   prijevodna_jedinica()
+
+   if "main" not in globalScopeNode[FUNCS]:
+      print("main")
+
+   elif not Util.allDeclared(globalScopeNode):
+      print("function")
 
 if __name__ == "__main__":
    main()
