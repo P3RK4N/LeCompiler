@@ -45,8 +45,9 @@ def allDeclared(currentNode):
    while toVisit:
        node = toVisit.pop()
        toVisit.extend(node[KIDS])
-       if len(node[DECL]) > 0:
-           return False
+       for name in node[DECL]:
+         if "|" in node[DECL][name]:
+            return False
 
    return True
 
@@ -58,10 +59,10 @@ def getFuncType(funcName, currentNode):
 def getDeclaredType(currentNode, name):
    while currentNode != None:
       if name in currentNode[SCOPE]:
-         return currentNode[SCOPE][TYPE], not CONST in currentNode[SCOPE][TYPE]
+         return currentNode[SCOPE][name][TYPE], not CONST in currentNode[SCOPE][name][TYPE]
       
       elif name in currentNode[DECL]:
-         return currentNode[DECL][name]
+         return currentNode[DECL][name], not "|" in currentNode[DECL][name] and not CONST in currentNode[DECL][name]
       
       elif name in currentNode[FUNCS]:
          return currentNode[FUNCS][name], False
@@ -74,7 +75,7 @@ def findOtherBracket(tree, l, r):
    count = 1
    current = None
    while tree and count > 0:
-      current = tree.popleft()
+      current = tree.popleft()[0]
       if l in current:
          count += 1
       elif r in current:
