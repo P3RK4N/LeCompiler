@@ -19,7 +19,7 @@ for folder in os.listdir(TEST_FOLDER):
     
     t = time.time()
 
-    os.system('python3 SemantickiAnalizator2.py < ' + tocompile +' > out.txt')
+    os.system('python3 SemantickiAnalizator.py < ' + tocompile +' > out.txt')
 
     dt += time.time()-t
 

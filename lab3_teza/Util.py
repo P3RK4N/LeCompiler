@@ -88,3 +88,56 @@ def stringify(s):
 
 def stringify1(kros, line, name):
    return " " + kros + "(" + line + "," + name + ")"
+
+def stringify_no_space(s):
+   kros,line,name = s.split(" ")
+   return kros + "(" + line + "," + name + ")"
+
+def isValidString(s):
+   if s[0] != "\"" or s[-1] != "\"":
+         return False
+   else:   
+      for pos in range(1,len(s)-1):
+         if s[pos] == "\\" and (pos == len(s)-2 or not s[pos+1] in {'\\', "t", "n", "\"", "\'", "0"}):
+            return False
+   
+   return True
+
+def isValidChar(c):
+   if len(c) == 2:
+      if c[0] != "\\" or not c[1] in {'\\', "t", "n", "\"", "\'", "0"}:
+         return False
+   else:
+      if c[0] in {'\\', '\''}:
+         return False
+   
+   return True
+
+#0 -> string
+#1 -> depth
+def getProduction(genTree):
+   if not genTree:
+      return ""
+   
+   production = []
+
+   production.append(genTree[0][0])
+   production.append("::=")
+
+   depth = genTree[1][1]
+   pos = 1
+
+   while pos < len(genTree) and genTree[pos][1] >= depth:
+      if depth == genTree[pos][1]:
+         s = genTree[pos][0]
+
+         if s[0] == "<" and s[-1] == ">":
+            production.append(s)
+         else:
+            production.append(stringify_no_space(s))
+            
+      pos += 1
+
+   production = ' '.join(production)
+
+   return production
